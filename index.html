@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <!-- maximum-scale/user-scalable=no stop the occasional "opens slightly
+         zoomed and off-centre" glitch some mobile browsers show on load —
+         without a fixed scale, the browser can restore a stale zoom/pan
+         state from a previous visit instead of always opening at 1:1.
+         viewport-fit=cover is what lets env(safe-area-inset-bottom) (used by
+         the athlete bottom tab bar) actually resolve to the real inset on
+         notched/home-indicator phones instead of defaulting to 0. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Home-screen / standalone-launch support (iOS Safari + Android Chrome) -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#121212" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Adaptive App" />
+
+    <title>Adaptive Performance | Training Log</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
