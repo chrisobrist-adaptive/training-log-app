@@ -533,7 +533,7 @@ export default function SessionPlayer({
             + Add set
           </button>
         </div>
-        <VelocitySection key={exercise.id} exerciseId={exercise.id} setNumbers={allSetNumbers} loggedSets={loggedSets} onSaveSet={onSaveSet} />
+        <VelocitySection key={`velocity-${exercise.id}`} exerciseId={exercise.id} setNumbers={allSetNumbers} loggedSets={loggedSets} onSaveSet={onSaveSet} />
         <textarea
           key={exercise.id}
           className="log-notes"
