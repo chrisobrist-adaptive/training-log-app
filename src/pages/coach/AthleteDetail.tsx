@@ -459,20 +459,36 @@ export default function AthleteDetail() {
                               <strong>{ex.exercise_inventory?.exercise_name ?? "—"}</strong>
                             </div>
                           );
+                          // The athlete's own comment on this exercise (the "Your
+                          // comment on this exercise…" box in their log), shown as
+                          // an extra row under the exercise's sets, beside its name.
+                          const athleteNote = ex.notes?.trim();
+                          const noteRow = athleteNote ? (
+                            <tr key={`${ex.id}-note`} className="session-note-row">
+                              <td colSpan={4}>
+                                <div className="session-note">
+                                  <span className="session-note-label">{profile.name.split(" ")[0]}'s note</span>
+                                  <span className="session-note-text">{athleteNote}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null;
                           if (loggedForExercise.length === 0) {
-                            return (
-                              <tr key={ex.id}>
-                                <td>{nameCell}</td>
+                            return [
+                              <tr key={ex.id} className={noteRow ? "has-note" : undefined}>
+                                <td rowSpan={noteRow ? 2 : 1}>{nameCell}</td>
                                 <td colSpan={4} className="muted">
                                   Planned: {plannedSetSummary(ex, activeWeekId ? (oneRmsByWeek[activeWeekId] ?? null) : null)} — not logged yet
                                 </td>
-                              </tr>
-                            );
+                              </tr>,
+                              noteRow,
+                            ];
                           }
                           const mainSetCount = ex.ascending_sets && ex.ascending_sets.length > 0 ? ex.ascending_sets.length : (ex.prescribed_sets ?? 1);
-                          return loggedForExercise.map((s, idx) => (
-                            <tr key={s.id}>
-                              {idx === 0 && <td rowSpan={loggedForExercise.length}>{nameCell}</td>}
+                          return [
+                            ...loggedForExercise.map((s, idx) => (
+                            <tr key={s.id} className={noteRow && idx === loggedForExercise.length - 1 ? "has-note" : undefined}>
+                              {idx === 0 && <td rowSpan={loggedForExercise.length + (noteRow ? 1 : 0)}>{nameCell}</td>}
                               <td className="muted">
                                 {s.set_number}
                                 {ex.backdown_sets != null && s.set_number > mainSetCount ? " (backdown)" : ""}
@@ -481,7 +497,9 @@ export default function AthleteDetail() {
                               <td style={{ color: "var(--good)" }}>{s.reps ?? "—"}</td>
                               <td>{s.rpe ?? "—"}</td>
                             </tr>
-                          ));
+                            )),
+                            noteRow,
+                          ];
                         })}
                       </tbody>
                     </table>
