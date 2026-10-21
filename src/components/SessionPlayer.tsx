@@ -24,6 +24,7 @@ import {
   formatRestTime,
 } from "../lib/sessionPlayerHelpers";
 import SetRow from "./SetRow";
+import VelocitySection from "./VelocitySection";
 
 const DEFAULT_REST_SECONDS = 180;
 const DIAL_R = 96;
@@ -532,6 +533,7 @@ export default function SessionPlayer({
             + Add set
           </button>
         </div>
+        <VelocitySection key={exercise.id} exerciseId={exercise.id} setNumbers={allSetNumbers} loggedSets={loggedSets} onSaveSet={onSaveSet} />
         <textarea
           key={exercise.id}
           className="log-notes"

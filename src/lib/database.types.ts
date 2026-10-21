@@ -167,6 +167,8 @@ export type Database = {
           set_number: number
           status: string | null
           updated_at: string
+          velocity_fast: number | null
+          velocity_slow: number | null
           weight: number | null
         }
         Insert: {
@@ -178,6 +180,8 @@ export type Database = {
           set_number: number
           status?: string | null
           updated_at?: string
+          velocity_fast?: number | null
+          velocity_slow?: number | null
           weight?: number | null
         }
         Update: {
@@ -189,6 +193,8 @@ export type Database = {
           set_number?: number
           status?: string | null
           updated_at?: string
+          velocity_fast?: number | null
+          velocity_slow?: number | null
           weight?: number | null
         }
       }

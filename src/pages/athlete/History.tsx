@@ -16,6 +16,7 @@ import { fetchAthleteWeekSequence, fetchWeeklyMetrics, type WeekWithBlock } from
 import type { WeeklyMetrics } from "../../lib/types";
 import WeekSummaryTable from "../../components/WeekSummaryTable";
 import TrendChart from "../../components/TrendChart";
+import VelocityChart from "../../components/VelocityChart";
 
 type LiftKey = "total" | "squat" | "bench" | "deadlift";
 
@@ -66,6 +67,12 @@ export default function History() {
         <h2 style={{ marginTop: "1.5rem" }}>Trend across blocks</h2>
         <TrendChart weeks={weeks} metrics={metrics} lift={activeLift} />
       </div>
+      {profile && (
+        <div className="section">
+          <h2>Velocity</h2>
+          <VelocityChart athleteId={profile.id} />
+        </div>
+      )}
     </div>
   );
 }

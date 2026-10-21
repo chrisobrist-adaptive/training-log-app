@@ -7,6 +7,7 @@ import BlockSwitcher from "../../components/BlockSwitcher";
 import WeekdayStrip from "../../components/WeekdayStrip";
 import LiftCategoryBadge from "../../components/LiftCategoryBadge";
 import WeekSummaryTable from "../../components/WeekSummaryTable";
+import VelocityChart from "../../components/VelocityChart";
 import TrendChart from "../../components/TrendChart";
 import { plannedSetSummary, loggedSetsForExercise } from "../../lib/sessionPlayerHelpers";
 import type { Block, Week, TrainingDay, Exercise, LoggedSet, Profile, WeeklyMetrics, WeekEffective1Rm } from "../../lib/types";
@@ -413,6 +414,13 @@ export default function AthleteDetail() {
         </div>
       )}
 
+      {athleteId && (
+        <div className="section">
+          <h2>Velocity</h2>
+          <VelocityChart athleteId={athleteId} />
+        </div>
+      )}
+
       {weeks.length > 0 && (
         <div className="section">
           <h2>Session log</h2>
@@ -472,6 +480,7 @@ export default function AthleteDetail() {
                           <th>Weight</th>
                           <th>Reps</th>
                           <th>RPE</th>
+                          <th title="Fastest / slowest rep, m/s">Velocity (m/s)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -489,7 +498,7 @@ export default function AthleteDetail() {
                           const athleteNote = ex.notes?.trim();
                           const noteRow = athleteNote ? (
                             <tr key={`${ex.id}-note`} className="session-note-row">
-                              <td colSpan={4}>
+                              <td colSpan={5}>
                                 <div className="session-note">
                                   <span className="session-note-label">{profile.name.split(" ")[0]}'s note</span>
                                   <span className="session-note-text">{athleteNote}</span>
@@ -501,7 +510,7 @@ export default function AthleteDetail() {
                             return [
                               <tr key={ex.id} className={noteRow ? "has-note" : undefined}>
                                 <td rowSpan={noteRow ? 2 : 1}>{nameCell}</td>
-                                <td colSpan={4} className="muted">
+                                <td colSpan={5} className="muted">
                                   Planned: {plannedSetSummary(ex, activeWeekId ? (oneRmsByWeek[activeWeekId] ?? null) : null)} — not logged yet
                                 </td>
                               </tr>,
@@ -520,6 +529,15 @@ export default function AthleteDetail() {
                               <td style={{ color: "var(--good)" }}>{s.weight ?? "—"}</td>
                               <td style={{ color: "var(--good)" }}>{s.reps ?? "—"}</td>
                               <td>{s.rpe ?? "—"}</td>
+                              <td>
+                                {s.velocity_fast != null || s.velocity_slow != null ? (
+                                  <span title="Fastest / slowest rep">
+                                    {s.velocity_fast ?? "—"} / {s.velocity_slow ?? "—"}
+                                  </span>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
                             </tr>
                             )),
                             noteRow,

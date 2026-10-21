@@ -74,3 +74,46 @@ export async function fetchPlannedWeeklyMetrics(athleteId: string, weekIds?: str
     .filter((m) => !wanted || wanted.has(m.week_id))
     .map((m) => ({ ...m, id: `${m.week_id}:${m.lift}`, updated_at: "" }));
 }
+
+// Every logged set with velocity recorded, for one athlete, across their whole
+// history — joined up to the exercise name and the training day's completion
+// date (filtered to the athlete through exercise → day → week → block).
+export interface VelocityRow {
+  velocity_fast: number | null;
+  velocity_slow: number | null;
+  created_at: string;
+  exercise_inventory_id: string | null;
+  exercise_name: string | null;
+  day_completed_at: string | null;
+}
+
+export async function fetchVelocityHistory(athleteId: string): Promise<VelocityRow[]> {
+  // The generated types don't include table relationships, so the nested
+  // select/filter below is untyped; the response shape is mapped by hand.
+  const { data, error } = await supabase
+    .from("logged_sets")
+    .select(
+      "velocity_fast, velocity_slow, created_at, exercises!inner(exercise_inventory_id, exercise_inventory(exercise_name), training_days!inner(completed_at, weeks!inner(blocks!inner(athlete_id))))",
+    )
+    .eq("exercises.training_days.weeks.blocks.athlete_id" as "id", athleteId)
+    .or("velocity_fast.not.is.null,velocity_slow.not.is.null");
+  if (error || !data) return [];
+  type Raw = {
+    velocity_fast: number | null;
+    velocity_slow: number | null;
+    created_at: string;
+    exercises: {
+      exercise_inventory_id: string | null;
+      exercise_inventory: { exercise_name: string } | null;
+      training_days: { completed_at: string | null };
+    };
+  };
+  return (data as unknown as Raw[]).map((r) => ({
+    velocity_fast: r.velocity_fast,
+    velocity_slow: r.velocity_slow,
+    created_at: r.created_at,
+    exercise_inventory_id: r.exercises.exercise_inventory_id,
+    exercise_name: r.exercises.exercise_inventory?.exercise_name ?? null,
+    day_completed_at: r.exercises.training_days.completed_at,
+  }));
+}

@@ -141,6 +141,10 @@ export function plannedSetSummary(exercise: Exercise, oneRm: OneRms): string {
 // by the UI but never touched) is deliberately excluded.
 export function loggedSetsForExercise(exercise: Exercise, loggedSets: LoggedSet[]): LoggedSet[] {
   return loggedSets
-    .filter((s) => s.exercise_id === exercise.id && (s.weight != null || s.reps != null || s.rpe != null))
+    .filter(
+      (s) =>
+        s.exercise_id === exercise.id &&
+        (s.weight != null || s.reps != null || s.rpe != null || s.velocity_fast != null || s.velocity_slow != null),
+    )
     .sort((a, b) => a.set_number - b.set_number);
 }
