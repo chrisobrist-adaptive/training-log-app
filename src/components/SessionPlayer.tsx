@@ -207,17 +207,40 @@ export default function SessionPlayer({
         {header}
         {weekdayStrip}
         <div className="log-preview-list">
-          {exercises.map((e) => {
+          {exercises.map((e, idx) => {
             const color = e.exercise_inventory ? liftColors[e.exercise_inventory.lift] : "#9a9a9e";
             const loggedRpe = loggedRpeSummary(e, loggedSets);
+            // Tapping anywhere on the row jumps straight to that exercise in
+            // the station view (an alternative to "Start session"); tapping
+            // the exercise name itself still opens its history instead.
+            const openExercise = () => {
+              setStationIndex(idx);
+              setShowPreview(false);
+            };
             return (
-              <div key={e.id} className="log-preview-row" style={{ borderLeft: `3px solid ${color}` }}>
+              <div
+                key={e.id}
+                className="log-preview-row log-preview-row-clickable"
+                style={{ borderLeft: `3px solid ${color}` }}
+                role="button"
+                tabIndex={0}
+                onClick={openExercise}
+                onKeyDown={(ev) => {
+                  if (ev.key === "Enter" || ev.key === " ") {
+                    ev.preventDefault();
+                    openExercise();
+                  }
+                }}
+              >
                 <div className="log-preview-row-text">
                   <strong
-                    style={e.exercise_inventory_id ? { cursor: "pointer" } : undefined}
+                    style={e.exercise_inventory_id ? { cursor: "pointer", alignSelf: "flex-start" } : { alignSelf: "flex-start" }}
                     onClick={
                       e.exercise_inventory_id
-                        ? () => setHistoryFor({ id: e.exercise_inventory_id!, name: e.exercise_inventory?.exercise_name })
+                        ? (ev) => {
+                            ev.stopPropagation();
+                            setHistoryFor({ id: e.exercise_inventory_id!, name: e.exercise_inventory?.exercise_name });
+                          }
                         : undefined
                     }
                   >

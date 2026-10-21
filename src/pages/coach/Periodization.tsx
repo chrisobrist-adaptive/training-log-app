@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import type { PeriodizationBlock, PeriodizationMacrocycle, Profile } from "../../lib/types";
@@ -293,6 +293,22 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
     ]);
   };
 
+  // The sticky label column's width varies (it's as wide as its longest
+  // label), so measure it and expose it as --pt-label-w — meet/block names
+  // that span many weeks use it to stay pinned just right of the labels
+  // while scrolling, instead of sliding out of view mid-span.
+  const tableRef = useRef<HTMLTableElement>(null);
+  useLayoutEffect(() => {
+    const table = tableRef.current;
+    const labelCell = table?.querySelector<HTMLElement>(".pt-row-label");
+    if (!table || !labelCell) return;
+    const update = () => table.style.setProperty("--pt-label-w", `${labelCell.offsetWidth}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(labelCell);
+    return () => observer.disconnect();
+  }, [loading, athlete]);
+
   if (loading || !athlete) return <p className="muted">Loading…</p>;
 
   const { mondays, byKey } = buildTimeline(macrocycles, blocksByMacrocycle);
@@ -367,7 +383,7 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
           to the left of the labels. */}
       <div className="section">
         <div className="pt-scroll">
-          <table className="periodization-table">
+          <table className="periodization-table" ref={tableRef}>
             <thead>
               <tr>
                 <th className="pt-row-label">{yearLabel}</th>
@@ -379,7 +395,10 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
               </tr>
               {WEEKDAY_LABELS.map((label, dayOffset) => (
                 <tr key={label}>
-                  <th className="pt-row-label">{label}</th>
+                  <th className="pt-row-label">
+                    <span className="pt-day-long">{label}</span>
+                    <span className="pt-day-short">{label.slice(0, 3)}</span>
+                  </th>
                   {mondays.map((monday, i) => {
                     const cell = byKey.get(dateKey(monday));
                     const day = addDays(monday, dayOffset);
@@ -415,7 +434,7 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
                   }
                   return (
                     <td key={i} colSpan={group.span} style={{ textAlign: "center", fontWeight: 700 }}>
-                      {mc.name}
+                      <span className="pt-sticky-text">{mc.name}</span>
                     </td>
                   );
                 })}
@@ -431,13 +450,13 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
                   if (readOnly) {
                     return (
                       <td key={i} colSpan={group.span} style={{ textAlign: "center", fontWeight: 600 }}>
-                        {block.name}
+                        <span className="pt-sticky-text">{block.name}</span>
                       </td>
                     );
                   }
                   return (
                     <td key={i} colSpan={group.span}>
-                      <div className="toolbar" style={{ flexWrap: "nowrap", gap: "0.35rem" }}>
+                      <div className="toolbar pt-sticky-text" style={{ flexWrap: "nowrap", gap: "0.35rem", width: "max-content" }}>
                         <input
                           value={block.name}
                           onChange={(e) => updateBlock(mcId, block.id, { name: e.target.value })}
@@ -495,7 +514,7 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
                     if (readOnly) {
                       return (
                         <td key={i} colSpan={group.span} style={{ textAlign: "center" }}>
-                          {value || "—"}
+                          <span className="pt-sticky-text">{value || "—"}</span>
                         </td>
                       );
                     }
@@ -539,7 +558,7 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
                     if (readOnly) {
                       return (
                         <td key={i} colSpan={group.span} style={{ textAlign: "center" }}>
-                          {value || "—"}
+                          <span className="pt-sticky-text">{value || "—"}</span>
                         </td>
                       );
                     }
