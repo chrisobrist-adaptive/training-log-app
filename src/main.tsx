@@ -39,10 +39,23 @@ function warmStandaloneLaunchIfNeeded(): boolean {
   }
 }
 
+// The logo splash in index.html shows for ~2s from launch (measured from
+// page start, so a slow bundle load doesn't stretch it further), then fades.
+const SPLASH_MS = 2000;
+function hideSplashAfterLaunch() {
+  const splash = document.getElementById("splash");
+  if (!splash) return;
+  window.setTimeout(() => {
+    splash.classList.add("splash-hide");
+    window.setTimeout(() => splash.remove(), 400);
+  }, Math.max(0, SPLASH_MS - performance.now()));
+}
+
 if (!warmStandaloneLaunchIfNeeded()) {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <App />
     </StrictMode>,
   );
+  hideSplashAfterLaunch();
 }

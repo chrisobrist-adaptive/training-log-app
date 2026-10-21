@@ -25,8 +25,34 @@
     <meta name="apple-mobile-web-app-title" content="Adaptive App" />
 
     <title>Adaptive Performance | Training Log</title>
+
+    <!-- Launch splash: plain HTML/CSS so it paints instantly, before the JS
+         bundle loads. main.tsx fades it out ~2s after launch. Only a real
+         cold start (app fully closed, then opened) re-runs this page —
+         returning from the background resumes the live page, no splash. -->
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #121212;
+        transition: opacity 0.4s ease;
+      }
+      #splash img {
+        width: min(70vw, 320px);
+        height: auto;
+      }
+      #splash.splash-hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true"><img src="/logo.png" alt="" /></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
