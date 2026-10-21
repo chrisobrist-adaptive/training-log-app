@@ -480,6 +480,35 @@ export default function TrainingLog() {
 
   return (
     <div className="narrow-page">
+      {/* 2026-10-05: the Week dropdown (WeekSwitcher) was removed here per
+          Chris - the calendar strip below now covers all week navigation,
+          via its ‹ › arrows (see CalendarStrip's goToWeek) as well as
+          tapping any day directly. Only the block switcher remains. */}
+      {/* Grey top panel (title, timer/block buttons, calendar) — full-bleed
+          on phones, up under the status bar, MacroFactor-style — so it reads
+          as its own segment above the session. */}
+      <div className="training-top-panel">
+        <div className="page-header" style={{ alignItems: "flex-start", flexWrap: "nowrap" }}>
+          <div style={{ minWidth: 0 }}>
+            <h1>Training</h1>
+            <p className="page-subtitle">
+              {activeBlock.name}
+              {selectedDay && activeWeek ? ` · Week ${activeWeek.week_number} · ${selectedDay.day_label}` : ""}
+            </p>
+          </div>
+          <div className="header-actions">
+            {selectedDay && <RestTimer key={selectedDay.id} ref={restTimerRef} dayId={selectedDay.id} />}
+            <BlockSwitcher
+              variant="icon"
+              blocks={blocks}
+              activeBlockId={activeBlockId}
+              completedBlockIds={completedBlockIds}
+              onSelect={setActiveBlockId}
+            />
+          </div>
+        </div>
+        {activeWeek && calendarEl}
+      </div>
       {error && (
         <p className="muted" style={{ marginBottom: "0.75rem" }}>
           Couldn't refresh just now — showing what was last loaded.{" "}
@@ -495,29 +524,6 @@ export default function TrainingLog() {
           </button>
         </p>
       )}
-      {/* 2026-10-05: the Week dropdown (WeekSwitcher) was removed here per
-          Chris - the calendar strip below now covers all week navigation,
-          via its ‹ › arrows (see CalendarStrip's goToWeek) as well as
-          tapping any day directly. Only the block switcher remains. */}
-      <div className="page-header" style={{ alignItems: "flex-start", flexWrap: "nowrap" }}>
-        <div style={{ minWidth: 0 }}>
-          <h1>Training</h1>
-          <p className="page-subtitle">
-            {activeBlock.name}
-            {selectedDay && activeWeek ? ` · Week ${activeWeek.week_number} · ${selectedDay.day_label}` : ""}
-          </p>
-        </div>
-        <div className="header-actions">
-          {selectedDay && <RestTimer key={selectedDay.id} ref={restTimerRef} dayId={selectedDay.id} />}
-          <BlockSwitcher
-            variant="icon"
-            blocks={blocks}
-            activeBlockId={activeBlockId}
-            completedBlockIds={completedBlockIds}
-            onSelect={setActiveBlockId}
-          />
-        </div>
-      </div>
 
       {sortedWeekDays.length === 0 && calendarSlots.length === 0 && <p className="muted">Nothing programmed for this week yet.</p>}
 
@@ -573,14 +579,12 @@ export default function TrainingLog() {
               endSession(selectedDay);
             }}
             onSetCompleted={() => restTimerRef.current?.startDefault()}
-            weekdayStrip={calendarEl}
           />
         </div>
       )}
 
       {!selectedDay && activeWeek && calendarEl && (
-        <div style={{ marginBottom: "1.25rem" }} key={selectedDate ? selectedDate.getTime() : 0}>
-          {calendarEl}
+        <div style={{ marginBottom: "1.25rem" }}>
           <p className="muted" style={{ textAlign: "center", padding: "1.4rem 1rem", border: "1px dashed var(--border)", borderRadius: "14px" }}>
             Rest day — nothing programmed.
           </p>
