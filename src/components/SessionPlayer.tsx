@@ -25,7 +25,9 @@ import {
 } from "../lib/sessionPlayerHelpers";
 import SetRow from "./SetRow";
 
-const REST_PRESETS = [60, 90, 120, 180, 300];
+const DEFAULT_REST_SECONDS = 180;
+const DIAL_R = 96;
+const DIAL_C = 2 * Math.PI * DIAL_R;
 
 function stationKey(dayId: string) {
   return `log-station:${dayId}`;
@@ -149,6 +151,20 @@ export default function SessionPlayer({
   }, [extraSetsByExercise, day.id]);
 
   const [restMenuOpen, setRestMenuOpen] = useState(false);
+  // Length the clock starts from when no rest is running (±15s adjusts it).
+  const [restPreset, setRestPreset] = useState(DEFAULT_REST_SECONDS);
+  const isResting = restSecondsLeft > 0;
+  // Full ring when idle; drains as the running rest counts down.
+  const dialFraction = isResting ? (restTotal > 0 ? Math.min(1, restSecondsLeft / restTotal) : 0) : 1;
+
+  useEffect(() => {
+    if (!restMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setRestMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [restMenuOpen]);
 
   function setRestTimer(seconds: number, total = seconds) {
     const endAt = seconds > 0 ? Date.now() + seconds * 1000 : null;
@@ -175,7 +191,7 @@ export default function SessionPlayer({
     const next = Math.max(0, restSecondsLeft + delta);
     setRestTimer(next, delta > 0 ? restTotal + delta : restTotal);
   }
-  const startDefaultRest = () => setRestTimer(180);
+  const startDefaultRest = () => setRestTimer(DEFAULT_REST_SECONDS);
 
   const lastNotifiedEndAt = useRef<number | null>(null);
   useEffect(() => {
@@ -339,7 +355,7 @@ export default function SessionPlayer({
         <button
           type="button"
           className={`log-clock-btn${restSecondsLeft > 0 ? " running" : ""}`}
-          onClick={() => setRestMenuOpen((v) => !v)}
+          onClick={() => setRestMenuOpen(true)}
           title="Rest timer"
           aria-label="Rest timer"
         >
@@ -351,45 +367,51 @@ export default function SessionPlayer({
           {restSecondsLeft > 0 && <span className="log-clock-badge">{formatRestTime(restSecondsLeft)}</span>}
         </button>
         {restMenuOpen && (
-          <div className="log-timer-dropdown">
-            {restSecondsLeft > 0 ? (
-              <div className="rest-countdown">
-                <div className="rest-countdown-main">
-                  <div className="rest-countdown-row">
-                    <button type="button" className="rest-adjust" onClick={() => adjustRest(-15)}>
-                      −15s
-                    </button>
-                    <span className="rest-time">{formatRestTime(restSecondsLeft)}</span>
-                    <button type="button" className="rest-adjust" onClick={() => adjustRest(15)}>
-                      +15s
-                    </button>
-                  </div>
-                  <div className="rest-bar">
-                    <div
-                      className="rest-bar-fill"
-                      style={{ width: `${restTotal > 0 ? Math.min(100, (restSecondsLeft / restTotal) * 100) : 0}%` }}
-                    />
-                  </div>
-                </div>
-                <button type="button" className="rest-skip" onClick={() => setRestTimer(0)}>
-                  Skip
+          <>
+            {/* Bottom-sheet clock. Tapping the dimmed backdrop (or ✕ / Esc)
+                closes it — the clock button only opens it. */}
+            <div className="rest-sheet-backdrop" onClick={() => setRestMenuOpen(false)} />
+            <div className="rest-sheet" role="dialog" aria-label="Rest timer">
+              <div className="rest-sheet-handle" />
+              <div className="rest-sheet-header">
+                <h2>Rest timer</h2>
+                <button type="button" className="rest-sheet-close" onClick={() => setRestMenuOpen(false)} aria-label="Close">
+                  ✕
                 </button>
               </div>
-            ) : (
-              // No rest running (one starts automatically when a set is
-              // completed) — offer a quick start instead.
-              <>
-                <div className="rest-caption">Start a rest</div>
-                <div className="log-preset-grid">
-                  {REST_PRESETS.map((seconds) => (
-                    <button key={seconds} type="button" className="log-preset-chip" onClick={() => setRestTimer(seconds)}>
-                      {formatRestTime(seconds)}
-                    </button>
-                  ))}
+              <div className="rest-dial-row">
+                <button type="button" className="rest-adjust" onClick={() => (isResting ? adjustRest(-15) : setRestPreset((p) => Math.max(15, p - 15)))}>
+                  −15s
+                </button>
+                <div className="rest-dial">
+                  <svg viewBox="0 0 220 220" aria-hidden="true">
+                    <circle className="rest-dial-track" cx="110" cy="110" r={DIAL_R} />
+                    <circle
+                      className="rest-dial-progress"
+                      cx="110"
+                      cy="110"
+                      r={DIAL_R}
+                      strokeDasharray={DIAL_C}
+                      strokeDashoffset={DIAL_C * (1 - dialFraction)}
+                    />
+                  </svg>
+                  <span className="rest-time">{formatRestTime(isResting ? restSecondsLeft : restPreset)}</span>
                 </div>
-              </>
-            )}
-          </div>
+                <button type="button" className="rest-adjust" onClick={() => (isResting ? adjustRest(15) : setRestPreset((p) => p + 15))}>
+                  +15s
+                </button>
+              </div>
+              {isResting ? (
+                <button type="button" className="rest-main-btn" onClick={() => setRestTimer(0)}>
+                  Skip
+                </button>
+              ) : (
+                <button type="button" className="rest-main-btn" onClick={() => setRestTimer(restPreset)}>
+                  Start
+                </button>
+              )}
+            </div>
+          </>
         )}
       </div>
       {weekdayStrip}
