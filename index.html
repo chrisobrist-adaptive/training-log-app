@@ -13,7 +13,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <!-- Loaded without blocking first paint (media="print" until it
+         arrives, then switched to all). A normal blocking stylesheet link
+         made iOS wait on a network round trip before painting anything —
+         including the splash — and a screen recording showed iOS's launch
+         cross-fade revealing the blank, unpainted web view for a few frames
+         in the meantime. Text briefly uses the fallback font until Exo 2
+         arrives (display=swap already did this for the font files). -->
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" /></noscript>
 
     <!-- Home-screen / standalone-launch support (iOS Safari + Android Chrome) -->
     <link rel="manifest" href="/manifest.webmanifest" />
