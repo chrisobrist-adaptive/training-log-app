@@ -254,8 +254,7 @@ export default function SessionPlayer({
     <div>
       {header}
       {weekdayStrip}
-      {/* Session preview button + one progress segment per exercise (current
-          one highlighted, finished ones filled) — tap a segment to jump. */}
+      {/* Back to the session preview list. */}
       <div className="station-nav">
         <button type="button" className="station-preview-btn" onClick={() => setShowPreview(true)} title="Session preview" aria-label="Session preview">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -265,18 +264,6 @@ export default function SessionPlayer({
             <circle cx="4.5" cy="18" r="1" fill="currentColor" />
           </svg>
         </button>
-        <div className="station-progress" role="group" aria-label={`Exercise ${clampedIndex + 1} of ${exercises.length}`}>
-          {exercises.map((e, idx) => (
-            <button
-              key={e.id}
-              type="button"
-              className={`station-seg${idx === clampedIndex ? " current" : allSetsLogged(e, loggedSets) ? " done" : ""}`}
-              onClick={() => setStationIndex(idx)}
-              aria-label={`Exercise ${idx + 1}: ${e.exercise_inventory?.exercise_name ?? "not set"}`}
-              aria-current={idx === clampedIndex ? "step" : undefined}
-            />
-          ))}
-        </div>
       </div>
       <div className="log-exercise-card" style={{ borderLeft: `3px solid ${color}` }}>
         <div className="log-exercise-head">
