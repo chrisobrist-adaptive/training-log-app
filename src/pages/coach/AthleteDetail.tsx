@@ -65,6 +65,10 @@ export default function AthleteDetail() {
   const [sessionLoggedSets, setSessionLoggedSets] = useState<LoggedSet[]>([]);
   const [sessionLoading, setSessionLoading] = useState(false);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
+  // Days / weeks where the athlete wrote a note on at least one exercise,
+  // flagged on the week tabs and the Session log's day buttons.
+  const [notedDayIds, setNotedDayIds] = useState<Set<string>>(new Set());
+  const [notedWeekIds, setNotedWeekIds] = useState<Set<string>>(new Set());
 
   const loadAthleteAndBlocks = async () => {
     if (!athleteId) return;
@@ -100,6 +104,23 @@ export default function AthleteDetail() {
         if (counts.total > 0 && counts.total === counts.completed) fullyCompletedWeeks.add(weekId);
       }
       setCompletedWeekIds(fullyCompletedWeeks);
+
+      const allDays = dayCountRows ?? [];
+      const weekIdByDay = new Map(allDays.map((d) => [d.id, d.week_id]));
+      const dayIds = allDays.map((d) => d.id);
+      const notedDays = new Set<string>();
+      // Chunked so a long training history can't overflow the request URL.
+      for (let i = 0; i < dayIds.length; i += 150) {
+        const { data: notedRows } = await supabase
+          .from("exercises")
+          .select("training_day_id")
+          .in("training_day_id", dayIds.slice(i, i + 150))
+          .not("notes", "is", null)
+          .neq("notes", "");
+        for (const r of notedRows ?? []) notedDays.add(r.training_day_id);
+      }
+      setNotedDayIds(notedDays);
+      setNotedWeekIds(new Set([...notedDays].map((id) => weekIdByDay.get(id)).filter((id): id is string => !!id)));
 
       const weeksByBlock = new Map<string, Week[]>();
       for (const w of weekSequence) {
@@ -377,6 +398,7 @@ export default function AthleteDetail() {
             {weeksInActiveBlock.map((w) => (
               <button key={w.id} className={activeWeekId === w.id ? "active" : ""} onClick={() => setActiveWeekId(w.id)} type="button">
                 W{w.week_number}
+                {notedWeekIds.has(w.id) && <NoteFlag />}
                 {completedWeekIds.has(w.id) && (
                   <span style={{ color: "var(--good)", marginLeft: "0.35rem" }} title="Week completed">
                     ✓
@@ -402,6 +424,7 @@ export default function AthleteDetail() {
             {weeksInActiveBlock.map((w) => (
               <button key={w.id} className={activeWeekId === w.id ? "active" : ""} onClick={() => setActiveWeekId(w.id)} type="button">
                 W{w.week_number}
+                {notedWeekIds.has(w.id) && <NoteFlag />}
                 {completedWeekIds.has(w.id) && (
                   <span style={{ color: "var(--good)", marginLeft: "0.35rem" }} title="Week completed">
                     ✓
@@ -414,7 +437,7 @@ export default function AthleteDetail() {
           {!sessionLoading && sessionDays.length === 0 && <p className="muted">Nothing programmed for this week.</p>}
           {!sessionLoading && sessionDays.length > 0 && (
             <>
-              {weekDaysWithWeekday.length > 0 && <WeekdayStrip days={weekDaysWithWeekday} selectedDayId={selectedDayId} onSelect={setSelectedDayId} />}
+              {weekDaysWithWeekday.length > 0 && <WeekdayStrip days={weekDaysWithWeekday} selectedDayId={selectedDayId} onSelect={setSelectedDayId} notedDayIds={notedDayIds} />}
               {weekDaysWithoutWeekday.length > 0 && (
                 <div className="toolbar" style={{ marginBottom: "1rem" }}>
                   {weekDaysWithoutWeekday.map((d) => (
@@ -426,6 +449,7 @@ export default function AthleteDetail() {
                       onClick={() => setSelectedDayId(d.id)}
                     >
                       {d.day_label}
+                      {notedDayIds.has(d.id) && <NoteFlag />}
                       {d.completed_at && " ✓"}
                     </button>
                   ))}
@@ -511,5 +535,18 @@ export default function AthleteDetail() {
         </div>
       )}
     </div>
+  );
+}
+
+// Small speech-bubble marker for "the athlete left a note here".
+function NoteFlag() {
+  return (
+    <svg className="note-flag" width="12" height="12" viewBox="0 0 24 24" fill="none" role="img" aria-label="Has athlete notes">
+      <title>Has athlete notes</title>
+      <path
+        d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4A1.5 1.5 0 0 1 4 14.5z"
+        fill="currentColor"
+      />
+    </svg>
   );
 }

@@ -13,10 +13,14 @@ export default function WeekdayStrip({
   days,
   selectedDayId,
   onSelect,
+  notedDayIds,
 }: {
   days: TrainingDay[];
   selectedDayId: string | null;
   onSelect: (dayId: string) => void;
+  // Coach view only: days where the athlete left an exercise note get a
+  // small marker on their circle.
+  notedDayIds?: Set<string>;
 }) {
   const byWeekday = new Map<number, TrainingDay>();
   for (const d of days) {
@@ -29,13 +33,14 @@ export default function WeekdayStrip({
         const day = byWeekday.get(weekday);
         const isSelected = !!day && day.id === selectedDayId;
         const isCompleted = !!day?.completed_at;
+        const hasNote = !!day && !!notedDayIds?.has(day.id);
         return (
           <button
             key={weekday}
             type="button"
             disabled={!day}
             onClick={() => day && onSelect(day.id)}
-            title={day ? day.day_label : "Rest day"}
+            title={day ? `${day.day_label}${hasNote ? " · has athlete notes" : ""}` : "Rest day"}
             style={{
               flex: 1,
               display: "flex",
@@ -84,9 +89,11 @@ export default function WeekdayStrip({
                       : "1px dashed var(--border)",
                 color: isCompleted ? "var(--good)" : isSelected ? "var(--accent)" : day ? "var(--text)" : "var(--muted)",
                 opacity: day ? 1 : 0.55,
+                position: "relative",
               }}
             >
               {isCompleted ? "✓" : day ? label[0] : "–"}
+              {hasNote && <span className="note-flag-dot" aria-label="Has athlete notes" />}
             </span>
           </button>
         );
