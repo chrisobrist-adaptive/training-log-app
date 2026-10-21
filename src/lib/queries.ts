@@ -44,6 +44,11 @@ export async function fetchWeekOneRms(weekIds: string[]): Promise<WeekEffective1
   return data as WeekEffective1Rm[];
 }
 
+// Alias: TrainingLog.tsx (the athlete view) imports this name specifically.
+// Same function, same query — kept as a separate export rather than
+// renaming the original, since fetchWeekOneRms is also called elsewhere.
+export const loadOneRmsForWeeks = fetchWeekOneRms;
+
 export async function fetchWeeklyMetrics(weekIds: string[]): Promise<WeeklyMetrics[]> {
   if (weekIds.length === 0) return [];
   const { data, error } = await supabase.from("weekly_metrics").select("*").in("week_id", weekIds);

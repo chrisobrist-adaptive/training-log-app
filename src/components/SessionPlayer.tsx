@@ -14,6 +14,7 @@ import ExerciseHistoryModal from "./ExerciseHistoryModal";
 // Treat this file as the clearest record of SessionPlayer's current
 // behavior, not as something known to compile as-is.
 import { liftColors } from "../lib/liftColors";
+import type { OneRms } from "../lib/exerciseDefaults";
 import {
   prescribedSummary,
   backdownSummary,
@@ -57,7 +58,7 @@ interface SessionPlayerProps {
   day: TrainingDay;
   exercises: Exercise[];
   loggedSets: LoggedSet[];
-  oneRms: unknown;
+  oneRms: OneRms;
   onSaveSet: (exerciseId: string, setNumber: number, patch: Partial<LoggedSet>) => void;
   onRemoveSet: (exerciseId: string, setNumber: number) => void;
   onSaveNotes: (exerciseId: string, patch: Partial<Exercise>) => void;

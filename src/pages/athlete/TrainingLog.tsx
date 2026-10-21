@@ -389,7 +389,6 @@ export default function TrainingLog() {
     () => weekTrainingDays.slice().sort((a, b) => a.order_index - b.order_index),
     [weekTrainingDays],
   );
-  const assignedDays = useMemo(() => sortedWeekDays.filter((d) => d.weekday != null), [sortedWeekDays]);
   const unassignedDays = useMemo(() => sortedWeekDays.filter((d) => d.weekday == null), [sortedWeekDays]);
 
   useEffect(() => {

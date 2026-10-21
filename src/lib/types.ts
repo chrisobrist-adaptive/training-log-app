@@ -39,6 +39,15 @@ export type WeekEffective1Rm = Views["week_effective_1rm"]["Row"];
 // nothing can render a set table without the lift/exercise name. Nullable
 // because exercise_inventory_id itself is nullable (an exercise can be
 // "not set yet" — see SessionPlayer.tsx's fallback text for that state).
-export type Exercise = Tables["exercises"]["Row"] & {
+// One row of a manually-entered "ascending sets" prescription (each set's
+// own weight/reps, overriding the normal sets x reps x %1RM scheme) —
+// stored as jsonb on the exercise row. Shape confirmed against every real
+// usage (BlockBuilder.tsx's ascending-sets editor, SessionPlayer.tsx,
+// sessionPlayerHelpers.ts): always { weight, reps }, both nullable while
+// a row is still being filled in.
+export type AscendingSetEntry = { weight: number | null; reps: number | null };
+
+export type Exercise = Omit<Tables["exercises"]["Row"], "ascending_sets"> & {
   exercise_inventory: ExerciseInventory | null;
+  ascending_sets: AscendingSetEntry[] | null;
 };
