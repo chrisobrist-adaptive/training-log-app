@@ -260,7 +260,9 @@ export default function SessionPlayer({
           <p className="cue-text">{exercise.coach_cue.trim()}</p>
         </div>
       )}
-      <div className="log-exercise-card" style={{ borderLeft: `3px solid ${color}` }}>
+      {/* Lift colour goes in a CSS variable (not an inline border) so the
+          phone layout can drop the stripe when the card runs edge to edge. */}
+      <div className="log-exercise-card" style={{ "--lift-color": color } as React.CSSProperties}>
         <div className="log-exercise-head">
           {exercise.exercise_inventory ? (
             <div className="log-avatar" style={{ background: `${color}29`, color, border: `1px solid ${color}66` }}>
