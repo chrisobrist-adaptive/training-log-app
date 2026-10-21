@@ -32,7 +32,7 @@ function warmStandaloneLaunchIfNeeded(): boolean {
     const alreadyWarmed = localStorage.getItem("atl:standalone-warmed");
     if (!isStandalone || alreadyWarmed) return false;
     localStorage.setItem("atl:standalone-warmed", "1");
-    sessionStorage.setItem("atl:skip-splash", "1");
+    sessionStorage.setItem("atl:splash-noanim", "1");
     window.location.reload();
     return true; // reloading — skip the render below entirely
   } catch {

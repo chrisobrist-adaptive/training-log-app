@@ -24,14 +24,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Adaptive App" />
     <!-- iOS home-screen launch images: what iOS shows the instant the app
-         is tapped, before this page can paint. Each one is pixel-matched to
-         the #splash below (same background, logo at the same size and
-         centre) so the hand-off from iOS's launch screen to the page is
-         invisible. Generated per iPhone screen size; iOS only fetches the
-         one whose media query matches. -->
+         is tapped, before this page can paint. Deliberately plain #121212
+         with NO logo: iOS can blank the screen for a frame between its
+         launch image and the page's first paint, and a logo on both sides
+         of that gap reads as a blink. Dark -> dark is invisible, and the
+         page's logo then fades in. iOS only fetches the matching size. -->
     <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1320x2868.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1290x2796.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1284x2778.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1260x2736.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1242x2688.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/launch-828x1792.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1242x2208.png" />
@@ -56,10 +57,16 @@
       // Skip the splash when the page is reloading itself just to apply an
       // app update (see registerServiceWorker in main.tsx) — the person
       // already saw it on launch moments ago.
+      // The one-time first-launch warm reload keeps the splash but without
+      // re-running the fade-in, so it reads as one continuous splash.
       try {
         if (sessionStorage.getItem("atl:skip-splash")) {
           sessionStorage.removeItem("atl:skip-splash");
           document.documentElement.classList.add("no-splash");
+        }
+        if (sessionStorage.getItem("atl:splash-noanim")) {
+          sessionStorage.removeItem("atl:splash-noanim");
+          document.documentElement.classList.add("splash-noanim");
         }
       } catch (e) {}
     </script>
@@ -81,6 +88,14 @@
       #splash img {
         width: min(66vw, 300px);
         height: auto;
+        animation: splash-logo-in 0.35s ease-out both;
+      }
+      .splash-noanim #splash img {
+        animation: none;
+      }
+      @keyframes splash-logo-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
       .no-splash #splash {
         display: none;
