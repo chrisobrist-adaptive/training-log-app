@@ -309,7 +309,10 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
   return (
     <div>
       <div className="page-header">
-        <h1>{readOnly ? "Annual training plan" : `${athlete.name} — Annual training plan`}</h1>
+        <div>
+          <h1>{readOnly ? "Plan" : "Annual plan"}</h1>
+          <p className="page-subtitle">{readOnly ? "Your annual training plan" : athlete.name}</p>
+        </div>
         {!readOnly && (
           <div className="toolbar">
             <Link to={`/athletes/${athleteId}`} className="secondary-button">

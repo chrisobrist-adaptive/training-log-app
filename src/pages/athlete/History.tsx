@@ -53,7 +53,10 @@ export default function History() {
   return (
     <div>
       <div className="page-header">
-        <h1>History &amp; trends</h1>
+        <div>
+          <h1>Graphs</h1>
+          <p className="page-subtitle">History &amp; trends</p>
+        </div>
       </div>
       <div className="section">
         <div className="week-tabs">

@@ -18,10 +18,12 @@
          made iOS wait on a network round trip before painting anything —
          including the splash — and a screen recording showed iOS's launch
          cross-fade revealing the blank, unpainted web view for a few frames
-         in the meantime. Text briefly uses the fallback font until Exo 2
-         arrives (display=swap already did this for the font files). -->
-    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" /></noscript>
+         in the meantime. Text briefly uses the fallback font until Archivo
+         arrives (display=swap already did this for the font files).
+         Archivo is loaded with its width axis (100-125%): normal width for
+         body text, 125% ("expanded") for the big page titles. -->
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..900&display=swap" rel="stylesheet" /></noscript>
 
     <!-- Home-screen / standalone-launch support (iOS Safari + Android Chrome) -->
     <link rel="manifest" href="/manifest.webmanifest" />
