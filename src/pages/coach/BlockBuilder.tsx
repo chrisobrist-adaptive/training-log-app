@@ -180,7 +180,15 @@ function copyableExerciseFields(ex: Exercise) {
     backdown_rpe: ex.backdown_rpe,
     backdown_rir: ex.backdown_rir,
     ascending_sets: ex.ascending_sets,
+    coach_cue: ex.coach_cue,
   };
+}
+
+// Sizes a textarea to its content (the athlete-cue box grows as you type).
+function autoGrow(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight + 2}px`;
 }
 
 export default function BlockBuilder() {
@@ -1076,6 +1084,19 @@ export default function BlockBuilder() {
                           + Add backdown sets
                         </button>
                       )}
+                      {/* Shown to the athlete in a "Cues" card above this exercise in their log. */}
+                      <textarea
+                        className="exercise-cue-input"
+                        rows={1}
+                        ref={autoGrow}
+                        value={ex.coach_cue ?? ""}
+                        onChange={(e) => {
+                          autoGrow(e.target);
+                          updateExerciseField(ex.id, { coach_cue: e.target.value || null });
+                        }}
+                        placeholder="Cue for athlete (optional), e.g. brace before the descent"
+                        aria-label="Cue for athlete"
+                      />
                     </div>
                   );
                 })}

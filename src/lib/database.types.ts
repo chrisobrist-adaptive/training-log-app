@@ -93,6 +93,7 @@ export type Database = {
           backdown_reps: string | null
           backdown_rir: number | null
           backdown_rpe: number | null
+          coach_cue: string | null
           backdown_sets: number | null
           exercise_inventory_id: string | null
           id: string
@@ -118,6 +119,7 @@ export type Database = {
           backdown_reps?: string | null
           backdown_rir?: number | null
           backdown_rpe?: number | null
+          coach_cue?: string | null
           backdown_sets?: number | null
           exercise_inventory_id?: string | null
           id?: string
@@ -143,6 +145,7 @@ export type Database = {
           backdown_reps?: string | null
           backdown_rir?: number | null
           backdown_rpe?: number | null
+          coach_cue?: string | null
           backdown_sets?: number | null
           exercise_inventory_id?: string | null
           id?: string

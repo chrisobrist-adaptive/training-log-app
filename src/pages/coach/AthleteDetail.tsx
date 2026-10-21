@@ -304,6 +304,7 @@ export default function AthleteDetail() {
                     backdown_rpe: ex.backdown_rpe,
                     backdown_rir: ex.backdown_rir,
                     ascending_sets: ex.ascending_sets,
+                    coach_cue: ex.coach_cue,
                   })),
                 );
               }

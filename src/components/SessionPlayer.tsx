@@ -254,6 +254,12 @@ export default function SessionPlayer({
     <div>
       {header}
       {weekdayStrip}
+      {exercise.coach_cue?.trim() && (
+        <div className="cue-card">
+          <div className="cue-label">Cues</div>
+          <p className="cue-text">{exercise.coach_cue.trim()}</p>
+        </div>
+      )}
       <div className="log-exercise-card" style={{ borderLeft: `3px solid ${color}` }}>
         <div className="log-exercise-head">
           {exercise.exercise_inventory ? (
