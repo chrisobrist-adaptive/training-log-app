@@ -26,11 +26,16 @@ export default function BlockSwitcher({
   activeBlockId,
   completedBlockIds,
   onSelect,
+  variant = "pill",
 }: {
   blocks: Block[];
   activeBlockId: string | null;
   completedBlockIds: Set<string>;
   onSelect: (blockId: string) => void;
+  // "icon": a round icon-only button (athlete Training header), with the
+  // panel opening right-aligned beneath it. "pill": the original named
+  // dropdown trigger.
+  variant?: "pill" | "icon";
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -56,20 +61,38 @@ export default function BlockSwitcher({
 
   return (
     <div ref={containerRef} style={{ position: "relative", display: "inline-block" }}>
-      <button
-        type="button"
-        className="switcher-trigger"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        title="Switch block"
-      >
-        {activeBlock?.name ?? "Select block"}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
+      {variant === "icon" ? (
+        <button
+          type="button"
+          className="switcher-icon-btn"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label="Switch block"
+          title="Switch block"
+        >
+          {/* stacked layers */}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3l9 5-9 5-9-5 9-5z" />
+            <path d="M3 13l9 5 9-5" />
+          </svg>
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="switcher-trigger"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          title="Switch block"
+        >
+          {activeBlock?.name ?? "Select block"}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
       {open && (
-        <div className="card switcher-panel" style={{ minWidth: 240 }}>
+        <div className={`card switcher-panel${variant === "icon" ? " switcher-panel-right" : ""}`} style={{ minWidth: 240 }}>
+          {variant === "icon" && <div className="switcher-panel-caption">Blocks</div>}
           {blocks.map((b) => (
             <button
               key={b.id}

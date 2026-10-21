@@ -497,11 +497,18 @@ export default function TrainingLog() {
           Chris - the calendar strip below now covers all week navigation,
           via its ‹ › arrows (see CalendarStrip's goToWeek) as well as
           tapping any day directly. Only the block switcher remains. */}
-      <div className="page-header">
-        <h1>Training</h1>
-      </div>
-      <div className="log-top-nav">
-        <BlockSwitcher blocks={blocks} activeBlockId={activeBlockId} completedBlockIds={completedBlockIds} onSelect={setActiveBlockId} />
+      <div className="page-header" style={{ alignItems: "flex-start", flexWrap: "nowrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <h1>Training</h1>
+          <p className="page-subtitle">{activeBlock.name}</p>
+        </div>
+        <BlockSwitcher
+          variant="icon"
+          blocks={blocks}
+          activeBlockId={activeBlockId}
+          completedBlockIds={completedBlockIds}
+          onSelect={setActiveBlockId}
+        />
       </div>
 
       {sortedWeekDays.length === 0 && calendarSlots.length === 0 && <p className="muted">Nothing programmed for this week yet.</p>}
