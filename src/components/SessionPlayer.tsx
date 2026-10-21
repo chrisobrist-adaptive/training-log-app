@@ -254,17 +254,6 @@ export default function SessionPlayer({
     <div>
       {header}
       {weekdayStrip}
-      {/* Back to the session preview list. */}
-      <div className="station-nav">
-        <button type="button" className="station-preview-btn" onClick={() => setShowPreview(true)} title="Session preview" aria-label="Session preview">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 6h11M9 12h11M9 18h11" />
-            <circle cx="4.5" cy="6" r="1" fill="currentColor" />
-            <circle cx="4.5" cy="12" r="1" fill="currentColor" />
-            <circle cx="4.5" cy="18" r="1" fill="currentColor" />
-          </svg>
-        </button>
-      </div>
       <div className="log-exercise-card" style={{ borderLeft: `3px solid ${color}` }}>
         <div className="log-exercise-head">
           {exercise.exercise_inventory ? (
@@ -385,20 +374,28 @@ export default function SessionPlayer({
           onBlur={(e) => onSaveNotes(exercise.id, { notes: e.target.value || null })}
         />
       </div>
-      {(clampedIndex > 0 || !isLastExercise) && (
-        <div className="toolbar" style={{ marginTop: "1rem" }}>
-          {clampedIndex > 0 && (
-            <button type="button" className="log-nav-btn" onClick={() => setStationIndex(clampedIndex - 1)}>
-              ← Previous
-            </button>
-          )}
-          {!isLastExercise && (
-            <button type="button" className="log-nav-btn primary" onClick={() => setStationIndex(clampedIndex + 1)}>
-              Next →
-            </button>
-          )}
-        </div>
-      )}
+      {/* Session preview (list icon) sits with Previous / Next so all the
+          exercise navigation is in one place. */}
+      <div className="toolbar" style={{ marginTop: "1rem", flexWrap: "nowrap" }}>
+        <button type="button" className="log-nav-icon-btn" onClick={() => setShowPreview(true)} title="Session preview" aria-label="Session preview">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 6h11M9 12h11M9 18h11" />
+            <circle cx="4.5" cy="6" r="1" fill="currentColor" />
+            <circle cx="4.5" cy="12" r="1" fill="currentColor" />
+            <circle cx="4.5" cy="18" r="1" fill="currentColor" />
+          </svg>
+        </button>
+        {clampedIndex > 0 && (
+          <button type="button" className="log-nav-btn" onClick={() => setStationIndex(clampedIndex - 1)}>
+            ← Previous
+          </button>
+        )}
+        {!isLastExercise && (
+          <button type="button" className="log-nav-btn primary" onClick={() => setStationIndex(clampedIndex + 1)}>
+            Next →
+          </button>
+        )}
+      </div>
       {isLastExercise && (
         <button type="button" className="log-end-btn" onClick={endSession}>
           End session
