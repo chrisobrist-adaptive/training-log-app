@@ -361,7 +361,12 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
         </div>
       )}
 
-      <div className="section" style={{ overflowX: "auto" }}>
+      {/* The scrolling happens on an unpadded inner wrapper so the sticky
+          row-label column pins flush to the visible edge — scrolling the
+          padded .section itself let cells slide through the padding gap
+          to the left of the labels. */}
+      <div className="section">
+        <div className="pt-scroll">
           <table className="periodization-table">
             <thead>
               <tr>
@@ -472,9 +477,10 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
                 })}
               </tr>
               <tr>
-                <td className="muted pt-row-label" colSpan={mondays.length + 1} style={{ borderBottom: "none", paddingBottom: 0 }}>
+                <td className="muted pt-row-label" style={{ borderBottom: "none", paddingBottom: 0 }}>
                   Lift phases
                 </td>
+                <td colSpan={mondays.length} style={{ borderBottom: "none" }} />
               </tr>
               {(["squat", "bench", "deadlift"] as const).map((lift) => (
                 <tr key={`phase-${lift}`}>
@@ -515,9 +521,10 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
                 </tr>
               ))}
               <tr>
-                <td className="muted pt-row-label" colSpan={mondays.length + 1} style={{ borderBottom: "none", paddingBottom: 0 }}>
+                <td className="muted pt-row-label" style={{ borderBottom: "none", paddingBottom: 0 }}>
                   Lift intensities
                 </td>
+                <td colSpan={mondays.length} style={{ borderBottom: "none" }} />
               </tr>
               {(["squat", "bench", "deadlift"] as const).map((lift) => (
                 <tr key={`intensity-${lift}`}>
@@ -551,6 +558,7 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
               ))}
             </tbody>
           </table>
+        </div>
       </div>
 
       {!readOnly && (
