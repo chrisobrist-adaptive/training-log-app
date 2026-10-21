@@ -6,6 +6,7 @@ import { loadOneRmsForWeeks } from "../../lib/queries";
 import BlockSwitcher from "../../components/BlockSwitcher";
 import CalendarStrip, { type CalendarSlot } from "../../components/CalendarStrip";
 import SessionPlayer from "../../components/SessionPlayer";
+import RestTimer, { type RestTimerHandle } from "../../components/RestTimer";
 import type { Block, Week, TrainingDay, Exercise, LoggedSet } from "../../lib/types";
 
 // RECONSTRUCTED 2026-10-05 from the live production bundle, together with
@@ -335,6 +336,7 @@ export default function TrainingLog() {
 
   const [loggedSets, setLoggedSets] = useState<LoggedSet[]>([]);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
+  const restTimerRef = useRef<RestTimerHandle>(null);
 
   const loadActiveWeekData = async () => {
     if (!activeWeekId) return;
@@ -500,15 +502,21 @@ export default function TrainingLog() {
       <div className="page-header" style={{ alignItems: "flex-start", flexWrap: "nowrap" }}>
         <div style={{ minWidth: 0 }}>
           <h1>Training</h1>
-          <p className="page-subtitle">{activeBlock.name}</p>
+          <p className="page-subtitle">
+            {activeBlock.name}
+            {selectedDay && activeWeek ? ` · Week ${activeWeek.week_number} · ${selectedDay.day_label}` : ""}
+          </p>
         </div>
-        <BlockSwitcher
-          variant="icon"
-          blocks={blocks}
-          activeBlockId={activeBlockId}
-          completedBlockIds={completedBlockIds}
-          onSelect={setActiveBlockId}
-        />
+        <div className="header-actions">
+          {selectedDay && <RestTimer key={selectedDay.id} ref={restTimerRef} dayId={selectedDay.id} />}
+          <BlockSwitcher
+            variant="icon"
+            blocks={blocks}
+            activeBlockId={activeBlockId}
+            completedBlockIds={completedBlockIds}
+            onSelect={setActiveBlockId}
+          />
+        </div>
       </div>
 
       {sortedWeekDays.length === 0 && calendarSlots.length === 0 && <p className="muted">Nothing programmed for this week yet.</p>}
@@ -560,7 +568,11 @@ export default function TrainingLog() {
             onSaveSet={saveSet}
             onRemoveSet={removeSet}
             onSaveNotes={saveNotes}
-            onEnd={() => endSession(selectedDay)}
+            onEnd={() => {
+              restTimerRef.current?.clear();
+              endSession(selectedDay);
+            }}
+            onSetCompleted={() => restTimerRef.current?.startDefault()}
             weekdayStrip={calendarEl}
           />
         </div>

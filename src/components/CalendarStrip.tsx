@@ -89,14 +89,6 @@ export default function CalendarStrip({
           );
         })}
       </div>
-      <p className="log-cal-sel-label">
-        Showing{" "}
-        <b>
-          {selectedDate
-            ? selectedDate.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })
-            : ""}
-        </b>
-      </p>
     </div>
   );
 }

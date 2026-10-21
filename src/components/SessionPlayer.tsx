@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Week, TrainingDay, Exercise, LoggedSet } from "../lib/types";
 import ExerciseHistoryModal from "./ExerciseHistoryModal";
+import { clearRestTimerStorage } from "./RestTimer";
 
 // RECONSTRUCTED 2026-10-05 from the live production bundle (minified
 // identifier `sq`), together with the new "view exercise history" feature
@@ -21,46 +22,29 @@ import {
   allSetsLogged,
   setSummaryText,
   loggedRpeSummary,
-  formatRestTime,
 } from "../lib/sessionPlayerHelpers";
 import SetRow from "./SetRow";
 import VelocitySection from "./VelocitySection";
 
-const DEFAULT_REST_SECONDS = 180;
-const DIAL_R = 96;
-const DIAL_C = 2 * Math.PI * DIAL_R;
-
 function stationKey(dayId: string) {
   return `log-station:${dayId}`;
-}
-function restEndKey(dayId: string) {
-  return `log-rest-end:${dayId}`;
-}
-function restTotalKey(dayId: string) {
-  return `log-rest-total:${dayId}`;
 }
 function extraSetsKey(dayId: string) {
   return `log-extra-sets:${dayId}`;
 }
 function clearSessionLocalStorage(dayId: string) {
+  clearRestTimerStorage(dayId);
   try {
     localStorage.removeItem(stationKey(dayId));
-    localStorage.removeItem(restEndKey(dayId));
-    localStorage.removeItem(restTotalKey(dayId));
     localStorage.removeItem(extraSetsKey(dayId));
   } catch {
     // ignore
   }
 }
-function notifyRestStarted() {
-  // best-effort browser notification when a rest timer begins — the exact
-  // original implementation (permission handling etc.) wasn't recovered.
-}
-function notifyRestEnded() {
-  // best-effort browser notification when a rest timer hits zero.
-}
 
 interface SessionPlayerProps {
+  // Still passed (the page header shows week/day now) — kept so callers
+  // don't change shape.
   week: Week;
   day: TrainingDay;
   exercises: Exercise[];
@@ -72,10 +56,12 @@ interface SessionPlayerProps {
   onEnd: () => void;
   onExit?: () => void;
   weekdayStrip?: React.ReactNode;
+  // Called when a set is marked completed — the Training page starts the
+  // default rest on its header RestTimer.
+  onSetCompleted?: () => void;
 }
 
 export default function SessionPlayer({
-  week,
   day,
   exercises,
   loggedSets,
@@ -86,31 +72,12 @@ export default function SessionPlayer({
   onEnd,
   onExit,
   weekdayStrip,
+  onSetCompleted,
 }: SessionPlayerProps) {
   const [stationIndex, setStationIndex] = useState(() => {
     try {
       const n = Number(localStorage.getItem(stationKey(day.id)));
       return Number.isFinite(n) && n >= 0 ? n : 0;
-    } catch {
-      return 0;
-    }
-  });
-  const [restEndAt, setRestEndAt] = useState<number | null>(() => {
-    try {
-      const n = Number(localStorage.getItem(restEndKey(day.id)));
-      return Number.isFinite(n) && n > Date.now() ? n : null;
-    } catch {
-      return null;
-    }
-  });
-  const [restSecondsLeft, setRestSecondsLeft] = useState(() =>
-    restEndAt ? Math.ceil((restEndAt - Date.now()) / 1000) : 0,
-  );
-  // Full length of the current rest, for the countdown bar's proportion.
-  const [restTotal, setRestTotal] = useState(() => {
-    try {
-      const n = Number(localStorage.getItem(restTotalKey(day.id)));
-      return Number.isFinite(n) && n > 0 ? n : 0;
     } catch {
       return 0;
     }
@@ -151,61 +118,6 @@ export default function SessionPlayer({
     }
   }, [extraSetsByExercise, day.id]);
 
-  const [restMenuOpen, setRestMenuOpen] = useState(false);
-  // Length the clock starts from when no rest is running (±15s adjusts it).
-  const [restPreset, setRestPreset] = useState(DEFAULT_REST_SECONDS);
-  const isResting = restSecondsLeft > 0;
-  // Full ring when idle; drains as the running rest counts down.
-  const dialFraction = isResting ? (restTotal > 0 ? Math.min(1, restSecondsLeft / restTotal) : 0) : 1;
-
-  useEffect(() => {
-    if (!restMenuOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setRestMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [restMenuOpen]);
-
-  function setRestTimer(seconds: number, total = seconds) {
-    const endAt = seconds > 0 ? Date.now() + seconds * 1000 : null;
-    setRestEndAt(endAt);
-    setRestSecondsLeft(seconds > 0 ? seconds : 0);
-    setRestTotal(endAt ? total : 0);
-    if (endAt && total === seconds) notifyRestStarted();
-    try {
-      if (endAt) {
-        localStorage.setItem(restEndKey(day.id), String(endAt));
-        localStorage.setItem(restTotalKey(day.id), String(total));
-      } else {
-        localStorage.removeItem(restEndKey(day.id));
-        localStorage.removeItem(restTotalKey(day.id));
-      }
-    } catch {
-      // ignore
-    }
-  }
-  // ±15s nudges the running countdown without restarting the bar: adding
-  // time grows the total too (so the bar stays proportional), removing it
-  // just shortens what's left.
-  function adjustRest(delta: number) {
-    const next = Math.max(0, restSecondsLeft + delta);
-    setRestTimer(next, delta > 0 ? restTotal + delta : restTotal);
-  }
-  const startDefaultRest = () => setRestTimer(DEFAULT_REST_SECONDS);
-
-  const lastNotifiedEndAt = useRef<number | null>(null);
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const secondsLeft = restEndAt ? Math.max(0, Math.ceil((restEndAt - Date.now()) / 1000)) : 0;
-      setRestSecondsLeft(secondsLeft);
-      if (restEndAt && secondsLeft === 0 && lastNotifiedEndAt.current !== restEndAt) {
-        lastNotifiedEndAt.current = restEndAt;
-        notifyRestEnded();
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [restEndAt]);
 
   const endSession = () => {
     clearSessionLocalStorage(day.id);
@@ -215,18 +127,15 @@ export default function SessionPlayer({
   const clampedIndex = Math.min(stationIndex, Math.max(exercises.length - 1, 0));
   const exercise = exercises[clampedIndex];
 
-  const header = (
+  // Week/day and the rest timer live in the Training page header now; this
+  // only keeps the optional back button.
+  const header = onExit ? (
     <div className="log-header">
-      {onExit && (
-        <button type="button" className="log-back-btn" onClick={onExit} title="Back to sessions" aria-label="Back to sessions">
-          ←
-        </button>
-      )}
-      <h1>
-        Week {week.week_number} · {day.day_label}
-      </h1>
+      <button type="button" className="log-back-btn" onClick={onExit} title="Back to sessions" aria-label="Back to sessions">
+        ←
+      </button>
     </div>
-  );
+  ) : null;
 
   if (!exercise) {
     return (
@@ -323,7 +232,6 @@ export default function SessionPlayer({
   const mainSetCount = ascendingSets ? ascendingSets.length : exercise.prescribed_sets ?? 1;
   const backdownSetCount = exercise.backdown_sets ?? 0;
   const topSetSummary = prescribedSummary(exercise);
-  const hiddenCount = exercises.length - clampedIndex - 1;
   const isLastExercise = clampedIndex === exercises.length - 1;
   const color = exercise.exercise_inventory ? liftColors[exercise.exercise_inventory.lift] : "#9a9a9e";
   const totalSetCount = mainSetCount + backdownSetCount;
@@ -344,84 +252,32 @@ export default function SessionPlayer({
 
   return (
     <div>
-      <div className="log-header">
-        {onExit && (
-          <button type="button" className="log-back-btn" onClick={onExit} title="Back to sessions" aria-label="Back to sessions">
-            ←
-          </button>
-        )}
-        <h1>
-          Week {week.week_number} · {day.day_label}
-        </h1>
-        <button
-          type="button"
-          className={`log-clock-btn${restSecondsLeft > 0 ? " running" : ""}`}
-          onClick={() => setRestMenuOpen(true)}
-          title="Rest timer"
-          aria-label="Rest timer"
-        >
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="13" r="8" />
-            <path d="M12 9v4l2.5 1.5" />
-            <path d="M9 2h6" />
-          </svg>
-          {restSecondsLeft > 0 && <span className="log-clock-badge">{formatRestTime(restSecondsLeft)}</span>}
-        </button>
-        {restMenuOpen && (
-          <>
-            {/* Bottom-sheet clock. Tapping the dimmed backdrop (or ✕ / Esc)
-                closes it — the clock button only opens it. */}
-            <div className="rest-sheet-backdrop" onClick={() => setRestMenuOpen(false)} />
-            <div className="rest-sheet" role="dialog" aria-label="Rest timer">
-              <div className="rest-sheet-handle" />
-              <div className="rest-sheet-header">
-                <h2>Rest timer</h2>
-                <button type="button" className="rest-sheet-close" onClick={() => setRestMenuOpen(false)} aria-label="Close">
-                  ✕
-                </button>
-              </div>
-              <div className="rest-dial-row">
-                <button type="button" className="rest-adjust" onClick={() => (isResting ? adjustRest(-15) : setRestPreset((p) => Math.max(15, p - 15)))}>
-                  −15s
-                </button>
-                <div className="rest-dial">
-                  <svg viewBox="0 0 220 220" aria-hidden="true">
-                    <circle className="rest-dial-track" cx="110" cy="110" r={DIAL_R} />
-                    <circle
-                      className="rest-dial-progress"
-                      cx="110"
-                      cy="110"
-                      r={DIAL_R}
-                      strokeDasharray={DIAL_C}
-                      strokeDashoffset={DIAL_C * (1 - dialFraction)}
-                    />
-                  </svg>
-                  <span className="rest-time">{formatRestTime(isResting ? restSecondsLeft : restPreset)}</span>
-                </div>
-                <button type="button" className="rest-adjust" onClick={() => (isResting ? adjustRest(15) : setRestPreset((p) => p + 15))}>
-                  +15s
-                </button>
-              </div>
-              {isResting ? (
-                <button type="button" className="rest-main-btn" onClick={() => setRestTimer(0)}>
-                  Skip
-                </button>
-              ) : (
-                <button type="button" className="rest-main-btn" onClick={() => setRestTimer(restPreset)}>
-                  Start
-                </button>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+      {header}
       {weekdayStrip}
-      <p className="log-station-label">
-        Exercise {clampedIndex + 1} of {exercises.length} ·{" "}
-        <button type="button" className="link-button" onClick={() => setShowPreview(true)}>
-          Session preview
+      {/* Session preview button + one progress segment per exercise (current
+          one highlighted, finished ones filled) — tap a segment to jump. */}
+      <div className="station-nav">
+        <button type="button" className="station-preview-btn" onClick={() => setShowPreview(true)} title="Session preview" aria-label="Session preview">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 6h11M9 12h11M9 18h11" />
+            <circle cx="4.5" cy="6" r="1" fill="currentColor" />
+            <circle cx="4.5" cy="12" r="1" fill="currentColor" />
+            <circle cx="4.5" cy="18" r="1" fill="currentColor" />
+          </svg>
         </button>
-      </p>
+        <div className="station-progress" role="group" aria-label={`Exercise ${clampedIndex + 1} of ${exercises.length}`}>
+          {exercises.map((e, idx) => (
+            <button
+              key={e.id}
+              type="button"
+              className={`station-seg${idx === clampedIndex ? " current" : allSetsLogged(e, loggedSets) ? " done" : ""}`}
+              onClick={() => setStationIndex(idx)}
+              aria-label={`Exercise ${idx + 1}: ${e.exercise_inventory?.exercise_name ?? "not set"}`}
+              aria-current={idx === clampedIndex ? "step" : undefined}
+            />
+          ))}
+        </div>
+      </div>
       <div className="log-exercise-card" style={{ borderLeft: `3px solid ${color}` }}>
         <div className="log-exercise-head">
           {exercise.exercise_inventory ? (
@@ -475,7 +331,7 @@ export default function SessionPlayer({
                   ascendingEntry={ascendingSets && setNumber <= ascendingSets.length ? ascendingSets[setNumber - 1] : null}
                   existing={existingForExercise.find((s) => s.set_number === setNumber) ?? null}
                   onSave={(patch) => onSaveSet(exercise.id, setNumber, patch)}
-                  onSetCompleted={startDefaultRest}
+                  onSetCompleted={onSetCompleted}
                 />
               ))}
             </tbody>
@@ -508,7 +364,7 @@ export default function SessionPlayer({
                     ascendingEntry={null}
                     existing={existingForExercise.find((s) => s.set_number === setNumber) ?? null}
                     onSave={(patch) => onSaveSet(exercise.id, setNumber, patch)}
-                    onSetCompleted={startDefaultRest}
+                    onSetCompleted={onSetCompleted}
                   />
                 ))}
               </tbody>
@@ -555,11 +411,6 @@ export default function SessionPlayer({
             </button>
           )}
         </div>
-      )}
-      {hiddenCount > 0 && (
-        <p className="muted" style={{ textAlign: "center", marginTop: "0.5rem" }}>
-          Next exercises hidden ({hiddenCount}) — they appear one at a time.
-        </p>
       )}
       {isLastExercise && (
         <button type="button" className="log-end-btn" onClick={endSession}>
