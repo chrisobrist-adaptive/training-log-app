@@ -157,8 +157,11 @@ function monthGroups(mondays: Date[]): { label: string; span: number }[] {
   return groups;
 }
 
-export default function Periodization() {
-  const { athleteId } = useParams<{ athleteId: string }>();
+// Also used read-only by athletes on their "Plan" tab (see App.tsx's
+// `/plan` route) — same calendar, but no editing controls.
+export default function Periodization({ athleteId: athleteIdProp, readOnly = false }: { athleteId?: string; readOnly?: boolean } = {}) {
+  const params = useParams<{ athleteId: string }>();
+  const athleteId = athleteIdProp ?? params.athleteId;
   const [athlete, setAthlete] = useState<Profile | null>(null);
   const [macrocycles, setMacrocycles] = useState<PeriodizationMacrocycle[]>([]);
   const [blocksByMacrocycle, setBlocksByMacrocycle] = useState<Record<string, PeriodizationBlock[]>>({});
@@ -306,12 +309,14 @@ export default function Periodization() {
   return (
     <div>
       <div className="page-header">
-        <h1>{athlete.name} — Annual training plan</h1>
-        <div className="toolbar">
-          <Link to={`/athletes/${athleteId}`} className="secondary-button">
-            ← Back to {athlete.name.split(" ")[0]}
-          </Link>
-        </div>
+        <h1>{readOnly ? "Annual training plan" : `${athlete.name} — Annual training plan`}</h1>
+        {!readOnly && (
+          <div className="toolbar">
+            <Link to={`/athletes/${athleteId}`} className="secondary-button">
+              ← Back to {athlete.name.split(" ")[0]}
+            </Link>
+          </div>
+        )}
       </div>
 
       {nextMeet && (
@@ -332,6 +337,13 @@ export default function Periodization() {
             .slice()
             .sort((a, b) => (a.meet_date < b.meet_date ? -1 : 1))
             .map((mc) => (
+              readOnly ? (
+                <div key={mc.id} className="toolbar" style={{ alignItems: "center", marginBottom: "0.5rem" }}>
+                  <strong>{mc.name}</strong>
+                  <span className="muted">{parseLocalDate(mc.meet_date).toLocaleDateString()}</span>
+                  <span className="badge badge-deployed">{weeksOutText(mc.meet_date)}</span>
+                </div>
+              ) : (
               <div key={mc.id} className="toolbar" style={{ alignItems: "center", marginBottom: "0.5rem" }}>
                 <input value={mc.name} onChange={(e) => updateMacrocycle(mc.id, { name: e.target.value })} style={{ minWidth: "200px" }} />
                 <input type="date" value={mc.meet_date} onChange={(e) => updateMacrocycle(mc.id, { meet_date: e.target.value })} />
@@ -344,6 +356,7 @@ export default function Periodization() {
                   Delete meet
                 </button>
               </div>
+              )
             ))}
         </div>
       )}
@@ -410,6 +423,13 @@ export default function Periodization() {
                   if (!block || !mcId) {
                     return <td key={i} colSpan={group.span} className="pt-blank" />;
                   }
+                  if (readOnly) {
+                    return (
+                      <td key={i} colSpan={group.span} style={{ textAlign: "center", fontWeight: 600 }}>
+                        {block.name}
+                      </td>
+                    );
+                  }
                   return (
                     <td key={i} colSpan={group.span}>
                       <div className="toolbar" style={{ flexWrap: "nowrap", gap: "0.35rem" }}>
@@ -466,6 +486,13 @@ export default function Periodization() {
                     const mcId = group.cell?.macrocycle.id;
                     if (!block || !mcId) return <td key={i} colSpan={group.span} className="pt-blank" />;
                     const value = (block[`${lift}_phase` as keyof PeriodizationBlock] as string) ?? "";
+                    if (readOnly) {
+                      return (
+                        <td key={i} colSpan={group.span} style={{ textAlign: "center" }}>
+                          {value || "—"}
+                        </td>
+                      );
+                    }
                     return (
                       <td key={i} colSpan={group.span}>
                         <select
@@ -502,6 +529,13 @@ export default function Periodization() {
                     const mcId = group.cell?.macrocycle.id;
                     if (!block || !mcId) return <td key={i} colSpan={group.span} className="pt-blank" />;
                     const value = (block[`${lift}_intensity` as keyof PeriodizationBlock] as string) ?? "";
+                    if (readOnly) {
+                      return (
+                        <td key={i} colSpan={group.span} style={{ textAlign: "center" }}>
+                          {value || "—"}
+                        </td>
+                      );
+                    }
                     return (
                       <td key={i} colSpan={group.span}>
                         <input
@@ -519,6 +553,7 @@ export default function Periodization() {
           </table>
       </div>
 
+      {!readOnly && (
       <div className="section">
         <h2>Add a meet</h2>
         <div className="toolbar" style={{ alignItems: "flex-end" }}>
@@ -535,6 +570,7 @@ export default function Periodization() {
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -43,6 +43,13 @@ function Home() {
   return null;
 }
 
+// Athlete's read-only view of the annual training plan their coach builds.
+function AthletePlan() {
+  const { profile } = useAuth();
+  if (profile?.role !== "athlete") return <Navigate to="/" replace />;
+  return <Periodization athleteId={profile.id} readOnly />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -88,6 +95,14 @@ export default function App() {
             element={
               <Layout>
                 <Periodization />
+              </Layout>
+            }
+          />
+          <Route
+            path="/plan"
+            element={
+              <Layout>
+                <AthletePlan />
               </Layout>
             }
           />

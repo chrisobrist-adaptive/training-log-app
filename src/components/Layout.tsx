@@ -97,6 +97,13 @@ function AppShell({ children }: { children: ReactNode }) {
             </svg>
             <span>Graphs</span>
           </Link>
+          <Link to="/plan" className={location.pathname === "/plan" ? "active" : undefined}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <rect x="4" y="5.5" width="16" height="14.5" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M4 10H20M8.5 3.5V7M15.5 3.5V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+            <span>Plan</span>
+          </Link>
           <div ref={menuRef} style={{ position: "relative", flex: 1, display: "flex" }}>
             <button
               type="button"
