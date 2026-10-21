@@ -27,7 +27,7 @@
 
     <!-- Home-screen / standalone-launch support (iOS Safari + Android Chrome) -->
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#121212" />
+    <meta name="theme-color" content="#0a0a0b" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -59,7 +59,7 @@
          bundle loads. main.tsx fades it out ~2s after launch. Only a real
          cold start (app fully closed, then opened) re-runs this page —
          returning from the background resumes the live page, no splash.
-         The splash background is pure black (#000), not the app's #121212,
+         The splash background is pure black (#000), not the app's #0a0a0b,
          because iOS's own launch screen is black — matching it exactly is
          what removes the one-frame flash at launch. The logo is inlined (a
          small, trimmed 560px WebP pre-flattened onto black) rather than loaded from /logo.png, so it paints in the very
@@ -85,7 +85,7 @@
     <style>
       html,
       body {
-        background: #121212;
+        background: #0a0a0b;
       }
       #splash {
         position: fixed;
