@@ -33,6 +33,9 @@ function stationKey(dayId: string) {
 function restEndKey(dayId: string) {
   return `log-rest-end:${dayId}`;
 }
+function restTotalKey(dayId: string) {
+  return `log-rest-total:${dayId}`;
+}
 function extraSetsKey(dayId: string) {
   return `log-extra-sets:${dayId}`;
 }
@@ -40,6 +43,7 @@ function clearSessionLocalStorage(dayId: string) {
   try {
     localStorage.removeItem(stationKey(dayId));
     localStorage.removeItem(restEndKey(dayId));
+    localStorage.removeItem(restTotalKey(dayId));
     localStorage.removeItem(extraSetsKey(dayId));
   } catch {
     // ignore
@@ -99,6 +103,15 @@ export default function SessionPlayer({
   const [restSecondsLeft, setRestSecondsLeft] = useState(() =>
     restEndAt ? Math.ceil((restEndAt - Date.now()) / 1000) : 0,
   );
+  // Full length of the current rest, for the countdown bar's proportion.
+  const [restTotal, setRestTotal] = useState(() => {
+    try {
+      const n = Number(localStorage.getItem(restTotalKey(day.id)));
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    } catch {
+      return 0;
+    }
+  });
   const [extraSetsByExercise, setExtraSetsByExercise] = useState<Record<string, number>>(() => {
     try {
       const raw = localStorage.getItem(extraSetsKey(day.id));
@@ -137,17 +150,30 @@ export default function SessionPlayer({
 
   const [restMenuOpen, setRestMenuOpen] = useState(false);
 
-  function setRestTimer(seconds: number) {
+  function setRestTimer(seconds: number, total = seconds) {
     const endAt = seconds > 0 ? Date.now() + seconds * 1000 : null;
     setRestEndAt(endAt);
     setRestSecondsLeft(seconds > 0 ? seconds : 0);
-    if (endAt) notifyRestStarted();
+    setRestTotal(endAt ? total : 0);
+    if (endAt && total === seconds) notifyRestStarted();
     try {
-      if (endAt) localStorage.setItem(restEndKey(day.id), String(endAt));
-      else localStorage.removeItem(restEndKey(day.id));
+      if (endAt) {
+        localStorage.setItem(restEndKey(day.id), String(endAt));
+        localStorage.setItem(restTotalKey(day.id), String(total));
+      } else {
+        localStorage.removeItem(restEndKey(day.id));
+        localStorage.removeItem(restTotalKey(day.id));
+      }
     } catch {
       // ignore
     }
+  }
+  // ±15s nudges the running countdown without restarting the bar: adding
+  // time grows the total too (so the bar stays proportional), removing it
+  // just shortens what's left.
+  function adjustRest(delta: number) {
+    const next = Math.max(0, restSecondsLeft + delta);
+    setRestTimer(next, delta > 0 ? restTotal + delta : restTotal);
   }
   const startDefaultRest = () => setRestTimer(180);
 
@@ -326,26 +352,43 @@ export default function SessionPlayer({
         </button>
         {restMenuOpen && (
           <div className="log-timer-dropdown">
-            <div className="rest-caption">Rest</div>
-            <div className="big-time">{formatRestTime(restSecondsLeft)}</div>
-            <div className="log-preset-grid">
-              {REST_PRESETS.map((seconds) => (
-                <button key={seconds} type="button" className="log-preset-chip" onClick={() => setRestTimer(seconds)}>
-                  {formatRestTime(seconds)}
+            {restSecondsLeft > 0 ? (
+              <div className="rest-countdown">
+                <div className="rest-countdown-main">
+                  <div className="rest-countdown-row">
+                    <button type="button" className="rest-adjust" onClick={() => adjustRest(-15)}>
+                      −15s
+                    </button>
+                    <span className="rest-time">{formatRestTime(restSecondsLeft)}</span>
+                    <button type="button" className="rest-adjust" onClick={() => adjustRest(15)}>
+                      +15s
+                    </button>
+                  </div>
+                  <div className="rest-bar">
+                    <div
+                      className="rest-bar-fill"
+                      style={{ width: `${restTotal > 0 ? Math.min(100, (restSecondsLeft / restTotal) * 100) : 0}%` }}
+                    />
+                  </div>
+                </div>
+                <button type="button" className="rest-skip" onClick={() => setRestTimer(0)}>
+                  Skip
                 </button>
-              ))}
-            </div>
-            <div className="log-adjust-row">
-              <button type="button" onClick={() => setRestTimer(Math.max(0, restSecondsLeft - 15))}>
-                −15s
-              </button>
-              <button type="button" onClick={() => setRestTimer(restSecondsLeft + 15)}>
-                +15s
-              </button>
-            </div>
-            <button type="button" className="log-reset-btn" onClick={() => setRestTimer(0)}>
-              reset
-            </button>
+              </div>
+            ) : (
+              // No rest running (one starts automatically when a set is
+              // completed) — offer a quick start instead.
+              <>
+                <div className="rest-caption">Start a rest</div>
+                <div className="log-preset-grid">
+                  {REST_PRESETS.map((seconds) => (
+                    <button key={seconds} type="button" className="log-preset-chip" onClick={() => setRestTimer(seconds)}>
+                      {formatRestTime(seconds)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
