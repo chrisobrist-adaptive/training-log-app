@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import type { PeriodizationBlock, PeriodizationMacrocycle, Profile } from "../../lib/types";
@@ -293,22 +293,6 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
     ]);
   };
 
-  // The sticky label column's width varies (it's as wide as its longest
-  // label), so measure it and expose it as --pt-label-w — meet/block names
-  // that span many weeks use it to stay pinned just right of the labels
-  // while scrolling, instead of sliding out of view mid-span.
-  const tableRef = useRef<HTMLTableElement>(null);
-  useLayoutEffect(() => {
-    const table = tableRef.current;
-    const labelCell = table?.querySelector<HTMLElement>(".pt-row-label");
-    if (!table || !labelCell) return;
-    const update = () => table.style.setProperty("--pt-label-w", `${labelCell.offsetWidth}px`);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(labelCell);
-    return () => observer.disconnect();
-  }, [loading, athlete]);
-
   if (loading || !athlete) return <p className="muted">Loading…</p>;
 
   const { mondays, byKey } = buildTimeline(macrocycles, blocksByMacrocycle);
@@ -383,7 +367,7 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
           to the left of the labels. */}
       <div className="section">
         <div className="pt-scroll">
-          <table className="periodization-table" ref={tableRef}>
+          <table className="periodization-table">
             <thead>
               <tr>
                 <th className="pt-row-label">{yearLabel}</th>
@@ -434,7 +418,7 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
                   }
                   return (
                     <td key={i} colSpan={group.span} style={{ textAlign: "center", fontWeight: 700 }}>
-                      <span className="pt-sticky-text">{mc.name}</span>
+                      {mc.name}
                     </td>
                   );
                 })}
@@ -450,13 +434,13 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
                   if (readOnly) {
                     return (
                       <td key={i} colSpan={group.span} style={{ textAlign: "center", fontWeight: 600 }}>
-                        <span className="pt-sticky-text">{block.name}</span>
+                        {block.name}
                       </td>
                     );
                   }
                   return (
                     <td key={i} colSpan={group.span}>
-                      <div className="toolbar pt-sticky-text" style={{ flexWrap: "nowrap", gap: "0.35rem", width: "max-content" }}>
+                      <div className="toolbar" style={{ flexWrap: "nowrap", gap: "0.35rem" }}>
                         <input
                           value={block.name}
                           onChange={(e) => updateBlock(mcId, block.id, { name: e.target.value })}
@@ -514,7 +498,7 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
                     if (readOnly) {
                       return (
                         <td key={i} colSpan={group.span} style={{ textAlign: "center" }}>
-                          <span className="pt-sticky-text">{value || "—"}</span>
+                          {value || "—"}
                         </td>
                       );
                     }
@@ -558,7 +542,7 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
                     if (readOnly) {
                       return (
                         <td key={i} colSpan={group.span} style={{ textAlign: "center" }}>
-                          <span className="pt-sticky-text">{value || "—"}</span>
+                          {value || "—"}
                         </td>
                       );
                     }
