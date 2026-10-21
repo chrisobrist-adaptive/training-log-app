@@ -32,6 +32,7 @@ function warmStandaloneLaunchIfNeeded(): boolean {
     const alreadyWarmed = localStorage.getItem("atl:standalone-warmed");
     if (!isStandalone || alreadyWarmed) return false;
     localStorage.setItem("atl:standalone-warmed", "1");
+    sessionStorage.setItem("atl:skip-splash", "1");
     window.location.reload();
     return true; // reloading — skip the render below entirely
   } catch {
@@ -51,7 +52,42 @@ function hideSplashAfterLaunch() {
   }, Math.max(0, SPLASH_MS - performance.now()));
 }
 
+// Service worker: checks for a new deploy on launch and every time the app
+// comes back to the foreground, and reloads once onto it as soon as the new
+// version takes over (the SW is skipWaiting + clientsClaim, so that happens
+// right after it installs). Without this, an installed home-screen app kept
+// running the previous version until it had been fully closed twice. That
+// one reload skips the launch splash via the atl:skip-splash flag.
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    // First-ever install also fires this — nothing stale to replace then.
+    if (!hadController || reloading) return;
+    reloading = true;
+    try {
+      sessionStorage.setItem("atl:skip-splash", "1");
+    } catch {
+      // ignore
+    }
+    window.location.reload();
+  });
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .then((reg) => {
+        reg.update().catch(() => {});
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") reg.update().catch(() => {});
+        });
+      })
+      .catch(() => {});
+  });
+}
+
 if (!warmStandaloneLaunchIfNeeded()) {
+  registerServiceWorker();
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <App />

@@ -19,9 +19,16 @@ export default defineConfig({
     VitePWA({
       manifest: false,
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      // Registered by hand in main.tsx instead (registerServiceWorker) — the
+      // auto-injected registerSW.js only calls register(), so an installed
+      // home-screen app never re-checked for updates or reloaded onto a new
+      // deploy until it had been force-quit twice.
+      injectRegister: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+        // iOS launch images are fetched by iOS itself (one per device), not
+        // by the page — no reason for every device to precache all of them.
+        globIgnores: ['splash/**'],
       },
     }),
   ],
