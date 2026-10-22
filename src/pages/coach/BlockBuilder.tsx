@@ -210,6 +210,10 @@ export default function BlockBuilder() {
   const [autoOpenExerciseId, setAutoOpenExerciseId] = useState<string | null>(null);
   const [backdownExerciseIds, setBackdownExerciseIds] = useState<Set<string>>(new Set());
   const [ascendingExerciseIds, setAscendingExerciseIds] = useState<Set<string>>(new Set());
+  // Exercises whose "cue for athlete" box is open (toggled by the speech-bubble
+  // button at the end of each exercise row; hidden by default to keep the
+  // builder uncluttered).
+  const [cueOpenExerciseIds, setCueOpenExerciseIds] = useState<Set<string>>(new Set());
 
   const pendingPatchesRef = useRef<Record<string, Partial<Exercise>>>({});
   const debounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -902,6 +906,25 @@ export default function BlockBuilder() {
                           >
                             ↓
                           </button>
+                          <button
+                            type="button"
+                            className={`secondary-button cue-toggle-btn${ex.coach_cue ? " has-cue" : ""}`}
+                            title={ex.coach_cue ? "Edit cue for athlete" : "Add cue for athlete"}
+                            aria-label={ex.coach_cue ? "Edit cue for athlete" : "Add cue for athlete"}
+                            aria-expanded={cueOpenExerciseIds.has(ex.id)}
+                            onClick={() =>
+                              setCueOpenExerciseIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(ex.id)) next.delete(ex.id);
+                                else next.add(ex.id);
+                                return next;
+                              })
+                            }
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4A1.5 1.5 0 0 1 4 14.5z" />
+                            </svg>
+                          </button>
                           <button className="danger-button" onClick={() => removeExercise(ex.id)}>
                             ✕
                           </button>
@@ -1085,18 +1108,21 @@ export default function BlockBuilder() {
                         </button>
                       )}
                       {/* Shown to the athlete in a "Cues" card above this exercise in their log. */}
-                      <textarea
-                        className="exercise-cue-input"
-                        rows={1}
-                        ref={autoGrow}
-                        value={ex.coach_cue ?? ""}
-                        onChange={(e) => {
-                          autoGrow(e.target);
-                          updateExerciseField(ex.id, { coach_cue: e.target.value || null });
-                        }}
-                        placeholder="Cue for athlete (optional), e.g. brace before the descent"
-                        aria-label="Cue for athlete"
-                      />
+                      {cueOpenExerciseIds.has(ex.id) && (
+                        <textarea
+                          className="exercise-cue-input"
+                          rows={1}
+                          ref={autoGrow}
+                          autoFocus
+                          value={ex.coach_cue ?? ""}
+                          onChange={(e) => {
+                            autoGrow(e.target);
+                            updateExerciseField(ex.id, { coach_cue: e.target.value || null });
+                          }}
+                          placeholder="Cue for athlete, e.g. brace before the descent"
+                          aria-label="Cue for athlete"
+                        />
+                      )}
                     </div>
                   );
                 })}
