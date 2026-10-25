@@ -7,6 +7,7 @@ import BlockSwitcher from "../../components/BlockSwitcher";
 import CalendarStrip, { type CalendarSlot } from "../../components/CalendarStrip";
 import SessionPlayer from "../../components/SessionPlayer";
 import RestTimer, { type RestTimerHandle } from "../../components/RestTimer";
+import { blockStartMonday, calendarPosition } from "../../lib/blockCalendar";
 import type { Block, Week, TrainingDay, Exercise, LoggedSet } from "../../lib/types";
 
 // RECONSTRUCTED 2026-10-05 from the live production bundle, together with
@@ -110,11 +111,9 @@ export default function TrainingLog() {
   // was needed here.
   const calendarSlots: CalendarSlot[] = useMemo(() => {
     if (!activeBlock || !activeBlock.deployed_at || weeksInActiveBlock.length === 0) return [];
-    const deploy = new Date(activeBlock.deployed_at);
-    deploy.setHours(0, 0, 0, 0);
-    const deployWeekday = (deploy.getDay() + 6) % 7; // 0=Mon..6=Sun
-    const base = new Date(deploy);
-    base.setDate(base.getDate() + (deployWeekday === 0 ? 0 : 7 - deployWeekday)); // next Monday on/after deploy
+    // Monday on/after deploy — shared with the coach's views (blockCalendar.ts)
+    // so both always agree on which week "today" is.
+    const base = blockStartMonday(activeBlock.deployed_at);
     const out: CalendarSlot[] = [];
     for (const wk of weeksInActiveBlock) {
       const days = lightDaysByWeek.get(wk.id) ?? [];
@@ -223,10 +222,20 @@ export default function TrainingLog() {
     }
     setCompletedBlockIds(fullyCompletedBlocks);
 
+    // Which block to open: the one the calendar has them in (the same rule
+    // the coach's views use — lib/blockCalendar.ts), so an unlogged session
+    // in an old block doesn't hold them back there. A block they picked by
+    // hand sticks for the rest of the session; on a fresh launch, a block
+    // that's current on the calendar wins over their last pick.
+    const weekCountByBlock = new Map<string, number>();
+    for (const w of loadedWeeks) weekCountByBlock.set(w.block_id, (weekCountByBlock.get(w.block_id) ?? 0) + 1);
+    const pos = calendarPosition(loadedBlocks, weekCountByBlock);
     setActiveBlockId((current) => {
       if (current && loadedBlocks.some((b) => b.id === current)) return current;
+      if (pos?.state === "current") return pos.block.id;
       const persisted = profile ? readPersisted(activeBlockKey(profile.id)) : null;
       if (persisted && loadedBlocks.some((b) => b.id === persisted)) return persisted;
+      if (pos) return pos.block.id;
       return (loadedBlocks.find((b) => !fullyCompletedBlocks.has(b.id)) ?? loadedBlocks[loadedBlocks.length - 1])?.id ?? null;
     });
     setLoading(false);

@@ -3,33 +3,18 @@ import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { getFunctionInvokeError } from "../../lib/functionError";
 import type { Profile } from "../../lib/types";
+import { calendarPosition, type CalendarPosition } from "../../lib/blockCalendar";
 
-// null = no deployed block at all (needs a program entirely, not just a
-// refresh soon). Otherwise how many weeks remain in their current block, by
-// the actual calendar — not by what's been logged. This used to count
-// incomplete weeks instead, but that penalized an athlete who forgot to log
-// a session they did do, and didn't move on when the coach told them to
-// skip a missed one and stay on schedule rather than drag the block out.
-// The current week counts as still remaining (a freshly-deployed 4-week
-// block shows "4 weeks left", not 3).
-type WeeksLeftInfo = { weeks: number } | null;
-
-// Full 7-day periods elapsed since the exact moment the block was deployed.
-// Deliberately NOT snapped to Monday-starting calendar weeks: an earlier
-// version compared "which Monday-based week is today in" against "which
-// Monday-based week was the block deployed in", which meant a block deployed
-// on, say, a Sunday looked like a full week had already elapsed the instant
-// the calendar ticked over to Monday — one day later. Counting plain elapsed
-// time from the real deploy timestamp avoids that, regardless of which day
-// of the week a block happens to be deployed on.
-function weeksElapsedSinceDeploy(deployedAt: string): number {
-  const elapsedMs = Date.now() - new Date(deployedAt).getTime();
-  return Math.max(0, Math.floor(elapsedMs / (7 * 86400000)));
-}
+// Where each athlete is up to BY THE CALENDAR (same rule as their own
+// Training tab — see lib/blockCalendar.ts), not by what they've logged: an
+// athlete who forgot to log a session, or was told to skip a missed one and
+// stay on schedule, still shows where the calendar has them. null = nothing
+// deployed yet.
+type PositionInfo = CalendarPosition | null;
 
 export default function CoachDashboard() {
   const [athletes, setAthletes] = useState<Profile[]>([]);
-  const [weeksLeftByAthlete, setWeeksLeftByAthlete] = useState<Record<string, WeeksLeftInfo>>({});
+  const [positionByAthlete, setPositionByAthlete] = useState<Record<string, PositionInfo>>({});
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
 
@@ -44,59 +29,40 @@ export default function CoachDashboard() {
     setAthletes(athleteList);
 
     if (athleteList.length > 0) {
-      await loadWeeksLeft(athleteList);
+      await loadPositions(athleteList);
     } else {
-      setWeeksLeftByAthlete({});
+      setPositionByAthlete({});
     }
     setLoading(false);
   };
 
-  // One pass across every athlete's currently-deployed block (if any),
-  // rather than a query per athlete.
-  const loadWeeksLeft = async (athleteList: Profile[]) => {
+  // One pass across every athlete's deployed/completed blocks, rather than a
+  // query per athlete.
+  const loadPositions = async (athleteList: Profile[]) => {
     const { data: blockRows } = await supabase
       .from("blocks")
-      .select("id, athlete_id, order_index, deployed_at")
+      .select("id, name, athlete_id, order_index, deployed_at")
       .in(
         "athlete_id",
         athleteList.map((a) => a.id)
       )
-      .eq("status", "deployed")
+      .in("status", ["deployed", "completed"])
       .order("order_index");
     const blocks = blockRows ?? [];
-    if (blocks.length === 0) {
-      setWeeksLeftByAthlete(Object.fromEntries(athleteList.map((a) => [a.id, null])));
-      return;
-    }
+    const { data: weekRows } = blocks.length
+      ? await supabase.from("weeks").select("id, block_id").in("block_id", blocks.map((b) => b.id))
+      : { data: [] };
+    const weekCountByBlock = new Map<string, number>();
+    for (const w of weekRows ?? []) weekCountByBlock.set(w.block_id, (weekCountByBlock.get(w.block_id) ?? 0) + 1);
 
-    // An athlete should only ever have one deployed block, but if more than
-    // one somehow exists, the most recently ordered one is the one they're
-    // actually working from.
-    const currentBlockByAthlete = new Map<string, { id: string; order_index: number; deployed_at: string | null }>();
-    for (const b of blocks) {
-      const existing = currentBlockByAthlete.get(b.athlete_id);
-      if (!existing || b.order_index > existing.order_index) currentBlockByAthlete.set(b.athlete_id, b);
-    }
-    const blockIds = [...currentBlockByAthlete.values()].map((b) => b.id);
-
-    const { data: weekRows } = await supabase.from("weeks").select("id, block_id").in("block_id", blockIds);
-    const weeksByBlock = new Map<string, number>();
-    for (const w of weekRows ?? []) {
-      weeksByBlock.set(w.block_id, (weeksByBlock.get(w.block_id) ?? 0) + 1);
-    }
-
-    const result: Record<string, WeeksLeftInfo> = {};
+    const result: Record<string, PositionInfo> = {};
     for (const athlete of athleteList) {
-      const block = currentBlockByAthlete.get(athlete.id);
-      const totalWeeks = block ? weeksByBlock.get(block.id) ?? 0 : 0;
-      if (!block || !block.deployed_at || totalWeeks === 0) {
-        result[athlete.id] = null;
-        continue;
-      }
-      const remaining = totalWeeks - weeksElapsedSinceDeploy(block.deployed_at);
-      result[athlete.id] = { weeks: Math.max(0, remaining) };
+      result[athlete.id] = calendarPosition(
+        blocks.filter((b) => b.athlete_id === athlete.id),
+        weekCountByBlock,
+      );
     }
-    setWeeksLeftByAthlete(result);
+    setPositionByAthlete(result);
   };
 
   useEffect(() => {
@@ -138,7 +104,7 @@ export default function CoachDashboard() {
           <p className="muted">No athletes yet. Invite your first one to get started.</p>
         ) : (
           athletes.map((a) => {
-            const info = weeksLeftByAthlete[a.id];
+            const pos = positionByAthlete[a.id];
             return (
             <div key={a.id} className="athlete-list-item">
               <Link
@@ -146,16 +112,24 @@ export default function CoachDashboard() {
                 style={{ color: "inherit", textDecoration: "none", flex: 1, display: "flex", alignItems: "center", gap: "0.6rem" }}
               >
                 <span>{a.name}</span> <span className="muted">{a.email}</span>
-                {info === undefined ? null : info === null ? (
-                  <span className="badge badge-draft" title="No block currently deployed to them">
+                {pos === undefined ? null : pos === null ? (
+                  <span className="badge badge-draft" title="No block deployed to them yet">
                     No active block
                   </span>
-                ) : (
+                ) : pos.state === "current" ? (
                   <span
-                    className={info.weeks <= 1 ? "badge badge-danger" : "badge badge-completed"}
-                    title="Weeks left in their current block, by the calendar — from when it was deployed, not what's been logged"
+                    className={pos.weekNumber >= pos.totalWeeks ? "badge badge-danger" : "badge badge-completed"}
+                    title="Where they're up to by their calendar (not by what's been logged)"
                   >
-                    {info.weeks} week{info.weeks === 1 ? "" : "s"} left
+                    {pos.block.name} · Week {pos.weekNumber} of {pos.totalWeeks}
+                  </span>
+                ) : pos.state === "upcoming" ? (
+                  <span className="badge badge-draft" title="Their next block hasn't started on the calendar yet">
+                    {pos.block.name} starts {pos.startsOn.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}
+                  </span>
+                ) : (
+                  <span className="badge badge-danger" title="Their last block has finished on the calendar and nothing new is deployed">
+                    {pos.block.name} finished
                   </span>
                 )}
               </Link>

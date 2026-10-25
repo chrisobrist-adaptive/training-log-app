@@ -8,6 +8,7 @@ import WeekdayStrip from "../../components/WeekdayStrip";
 import LiftCategoryBadge from "../../components/LiftCategoryBadge";
 import WeekSummaryTable from "../../components/WeekSummaryTable";
 import VelocityChart from "../../components/VelocityChart";
+import { calendarPosition, todayWeekday, type CalendarPosition } from "../../lib/blockCalendar";
 import TrendChart from "../../components/TrendChart";
 import { plannedSetSummary, loggedSetsForExercise } from "../../lib/sessionPlayerHelpers";
 import type { Block, Week, TrainingDay, Exercise, LoggedSet, Profile, WeeklyMetrics, WeekEffective1Rm } from "../../lib/types";
@@ -70,6 +71,9 @@ export default function AthleteDetail() {
   // flagged on the week tabs and the Session log's day buttons.
   const [notedDayIds, setNotedDayIds] = useState<Set<string>>(new Set());
   const [notedWeekIds, setNotedWeekIds] = useState<Set<string>>(new Set());
+  // Where the athlete is up to by the calendar (same rule as their Training
+  // tab) — drives the default block/week/day shown here and the header line.
+  const [calendarPos, setCalendarPos] = useState<CalendarPosition | null>(null);
 
   const loadAthleteAndBlocks = async () => {
     if (!athleteId) return;
@@ -136,11 +140,28 @@ export default function AthleteDetail() {
       }
       setCompletedBlockIds(fullyCompletedBlocks);
 
-      const defaultBlock = loadedBlocks.find((b) => !fullyCompletedBlocks.has(b.id)) ?? loadedBlocks[loadedBlocks.length - 1];
+      // Open on where the calendar has them (not the first week they haven't
+      // fully logged); only fall back to logging progress when nothing has
+      // been deployed yet.
+      const weekCountByBlock = new Map<string, number>();
+      for (const w of weekSequence) weekCountByBlock.set(w.block_id, (weekCountByBlock.get(w.block_id) ?? 0) + 1);
+      const pos = calendarPosition(
+        loadedBlocks.filter((b) => b.status === "deployed" || b.status === "completed"),
+        weekCountByBlock,
+      );
+      setCalendarPos(pos);
+
+      const defaultBlock = pos
+        ? loadedBlocks.find((b) => b.id === pos.block.id)
+        : (loadedBlocks.find((b) => !fullyCompletedBlocks.has(b.id)) ?? loadedBlocks[loadedBlocks.length - 1]);
       setActiveBlockId((current) => (current && loadedBlocks.some((b) => b.id === current) ? current : (defaultBlock?.id ?? null)));
 
       const defaultBlockWeeks = weekSequence.filter((w) => w.block_id === defaultBlock?.id);
-      const defaultWeek = defaultBlockWeeks.find((w) => !fullyCompletedWeeks.has(w.id)) ?? defaultBlockWeeks[defaultBlockWeeks.length - 1];
+      const calendarWeekNumber = pos ? (pos.state === "current" ? pos.weekNumber : pos.state === "upcoming" ? 1 : pos.totalWeeks) : null;
+      const defaultWeek =
+        (calendarWeekNumber != null ? defaultBlockWeeks.find((w) => w.week_number === calendarWeekNumber) : undefined) ??
+        defaultBlockWeeks.find((w) => !fullyCompletedWeeks.has(w.id)) ??
+        defaultBlockWeeks[defaultBlockWeeks.length - 1];
       setActiveWeekId((current) =>
         current && weekSequence.some((w) => w.id === current) ? current : (defaultWeek?.id ?? weekSequence[weekSequence.length - 1]?.id ?? null),
       );
@@ -164,10 +185,13 @@ export default function AthleteDetail() {
       const days = dayRows ?? [];
       setSessionDays(days);
       const sortedDays = days.slice().sort((a, b) => a.order_index - b.order_index);
+      // In the athlete's current calendar week, open today's session if
+      // there is one; otherwise the first not-yet-completed day.
+      const todaysDay = activeWeekId === calendarWeekId ? sortedDays.find((d) => d.weekday === todayWeekday()) : undefined;
       setSelectedDayId((current) =>
         current && sortedDays.some((d) => d.id === current)
           ? current
-          : (sortedDays.find((d) => !d.completed_at) ?? sortedDays[sortedDays.length - 1])?.id ?? null,
+          : (todaysDay ?? sortedDays.find((d) => !d.completed_at) ?? sortedDays[sortedDays.length - 1])?.id ?? null,
       );
       if (days.length > 0) {
         const { data: exerciseRows } = await supabase
@@ -192,12 +216,20 @@ export default function AthleteDetail() {
       }
       setSessionLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeWeekId]);
+
+  // The week id the calendar has them in right now (null between/after blocks).
+  const calendarWeekId =
+    calendarPos?.state === "current"
+      ? (weeks.find((w) => w.block_id === calendarPos.block.id && w.week_number === calendarPos.weekNumber)?.id ?? null)
+      : null;
 
   const selectBlock = (blockId: string) => {
     setActiveBlockId(blockId);
     const blockWeeks = weeks.filter((w) => w.block_id === blockId);
-    const defaultWeek = blockWeeks.find((w) => !completedWeekIds.has(w.id)) ?? blockWeeks[blockWeeks.length - 1];
+    const calendarWeek = blockWeeks.find((w) => w.id === calendarWeekId);
+    const defaultWeek = calendarWeek ?? blockWeeks.find((w) => !completedWeekIds.has(w.id)) ?? blockWeeks[blockWeeks.length - 1];
     setActiveWeekId(defaultWeek?.id ?? null);
   };
 
@@ -330,7 +362,18 @@ export default function AthleteDetail() {
   return (
     <div>
       <div className="page-header">
-        <h1>{profile.name}</h1>
+        <div>
+          <h1>{profile.name}</h1>
+          {calendarPos && (
+            <p className="page-subtitle" title="Where they're up to by their calendar (not by what's been logged)">
+              {calendarPos.state === "current"
+                ? `${calendarPos.block.name} · Week ${calendarPos.weekNumber} of ${calendarPos.totalWeeks}`
+                : calendarPos.state === "upcoming"
+                  ? `${calendarPos.block.name} starts ${calendarPos.startsOn.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}`
+                  : `${calendarPos.block.name} finished`}
+            </p>
+          )}
+        </div>
         <div className="toolbar">
           <Link to="/" className="secondary-button">
             ← All athletes
