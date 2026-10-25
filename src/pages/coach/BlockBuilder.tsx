@@ -498,6 +498,27 @@ export default function BlockBuilder() {
     }
   };
 
+  const reorderDay = async (weekId: string, dayId: string, direction: "up" | "down") => {
+    const weekDays = trainingDays.filter((d) => d.week_id === weekId).sort((a, b) => a.order_index - b.order_index);
+    const currentIndex = weekDays.findIndex((d) => d.id === dayId);
+    if (currentIndex === -1) return;
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= weekDays.length) return;
+    const current = weekDays[currentIndex];
+    const target = weekDays[targetIndex];
+    setTrainingDays((prev) =>
+      prev.map((d) => (d.id === current.id ? { ...d, order_index: target.order_index } : d.id === target.id ? { ...d, order_index: current.order_index } : d)),
+    );
+    const [{ error: e1 }, { error: e2 }] = await Promise.all([
+      supabase.from("training_days").update({ order_index: target.order_index }).eq("id", current.id),
+      supabase.from("training_days").update({ order_index: current.order_index }).eq("id", target.id),
+    ]);
+    if (e1 || e2) {
+      window.alert(`Couldn't reorder: ${(e1 ?? e2)?.message}`);
+      await loadAll();
+    }
+  };
+
   const addExercise = async (dayId: string) => {
     const { data: created, error } = await supabase
       .from("exercises")
@@ -774,7 +795,7 @@ export default function BlockBuilder() {
 
             {activeWeekDays.length === 0 && <p className="muted">No days yet — add one to start programming.</p>}
 
-            {activeWeekDays.map((day) => (
+            {activeWeekDays.map((day, dayIdx, weekDays) => (
               <div key={day.id} className="day-block">
                 <div className="day-block-header">
                   <input
@@ -804,6 +825,24 @@ export default function BlockBuilder() {
                     <option value="6">Sunday</option>
                   </select>
                   <div className="toolbar">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      title="Move up"
+                      onClick={() => reorderDay(day.week_id, day.id, "up")}
+                      disabled={dayIdx === 0}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      title="Move down"
+                      onClick={() => reorderDay(day.week_id, day.id, "down")}
+                      disabled={dayIdx === weekDays.length - 1}
+                    >
+                      ↓
+                    </button>
                     <button className="secondary-button" onClick={() => duplicateDay(day)}>
                       Duplicate day
                     </button>
