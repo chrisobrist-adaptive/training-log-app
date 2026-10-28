@@ -216,6 +216,7 @@ export type Database = {
           order_index: number
           squat_intensity: string | null
           squat_phase: string | null
+          week_pattern: string | null
         }
         Insert: {
           bench_intensity?: string | null
@@ -231,6 +232,7 @@ export type Database = {
           order_index?: number
           squat_intensity?: string | null
           squat_phase?: string | null
+          week_pattern?: string | null
         }
         Update: {
           bench_intensity?: string | null
@@ -246,6 +248,7 @@ export type Database = {
           order_index?: number
           squat_intensity?: string | null
           squat_phase?: string | null
+          week_pattern?: string | null
         }
       }
       periodization_macrocycles: {

@@ -49,23 +49,32 @@ interface WeekCell {
   isMeetWeek: boolean;
 }
 
+// A block's week-by-week microcycle labels. A typed pattern like "001234T"
+// gives one week per character (0 = deload, T = taper, numbers = training
+// weeks — whatever the coach types is shown as-is). Blocks without a pattern
+// fall back to the older count: 1..n, with the last week shown as "0" when
+// deload_last_week is on.
+function weekLabels(block: PeriodizationBlock): string[] {
+  const pattern = (block.week_pattern ?? "").replace(/\s+/g, "");
+  if (pattern) return [...pattern];
+  const n = Math.max(1, block.num_weeks);
+  return Array.from({ length: n }, (_, i) => (block.deload_last_week && i === n - 1 ? "0" : String(i + 1)));
+}
+
 // Lays out one meet's blocks backward from its meet date, same as before —
 // this part of the math hasn't changed, it's just now merged with every
 // other meet's onto one shared timeline instead of getting its own table.
 function buildWeekCells(macrocycle: PeriodizationMacrocycle, blocks: PeriodizationBlock[]): WeekCell[] {
   const sorted = [...blocks].sort((a, b) => a.order_index - b.order_index);
-  const totalWeeks = sorted.reduce((sum, b) => sum + Math.max(1, b.num_weeks), 0);
+  const totalWeeks = sorted.reduce((sum, b) => sum + weekLabels(b).length, 0);
   if (totalWeeks === 0) return [];
   const meetMonday = mondayOf(parseLocalDate(macrocycle.meet_date));
   const cells: WeekCell[] = [];
   let idx = 0;
   for (const block of sorted) {
-    const n = Math.max(1, block.num_weeks);
-    for (let i = 0; i < n; i++) {
+    for (const microLabel of weekLabels(block)) {
       const weeksFromEnd = totalWeeks - 1 - idx;
       const monday = addDays(meetMonday, -7 * weeksFromEnd);
-      const isDeload = block.deload_last_week && i === n - 1;
-      const microLabel = isDeload ? "0" : String(i + 1);
       cells.push({ monday, macrocycle, block, microLabel, isMeetWeek: idx === totalWeeks - 1 });
       idx++;
     }
@@ -449,13 +458,9 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
                           onChange={(e) => updateBlock(mcId, block.id, { name: e.target.value })}
                           style={{ width: "90px" }}
                         />
-                        <input
-                          type="number"
-                          min={1}
-                          value={block.num_weeks}
-                          onChange={(e) => updateBlock(mcId, block.id, { num_weeks: Math.max(1, Number(e.target.value) || 1) })}
-                          title="Weeks in this block"
-                          style={{ width: "48px" }}
+                        <WeekPatternInput
+                          value={weekLabels(block).join("")}
+                          onCommit={(pattern) => updateBlock(mcId, block.id, { week_pattern: pattern, num_weeks: pattern.length })}
                         />
                         <button className="link-button" onClick={() => moveBlock(mcId, block.id, -1)} title="Move earlier">
                           ↑
@@ -586,5 +591,40 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
       </div>
       )}
     </div>
+  );
+}
+
+// Typed week pattern for a block, e.g. "001234T" — one character per week.
+// Saved on Enter / blur rather than per keystroke: the plan is laid out
+// backward from the meet date, so each length change moves the block on the
+// timeline, which would yank the box out from under the cursor mid-typing.
+// Spaces are ignored; an empty entry is ignored (keeps the current weeks).
+function WeekPatternInput({ value, onCommit }: { value: string; onCommit: (pattern: string) => void }) {
+  const commit = (input: HTMLInputElement) => {
+    const pattern = input.value.replace(/\s+/g, "").toUpperCase().slice(0, 52);
+    if (!pattern) {
+      input.value = value;
+      return;
+    }
+    input.value = pattern;
+    if (pattern !== value) onCommit(pattern);
+  };
+  return (
+    <input
+      key={value}
+      defaultValue={value}
+      onBlur={(e) => commit(e.target)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") {
+          e.currentTarget.value = value;
+          e.currentTarget.blur();
+        }
+      }}
+      placeholder="e.g. 001234T"
+      title="Weeks in this block, one character each — e.g. 001234T (0 = deload, T = taper). Press Enter to apply."
+      aria-label="Week pattern"
+      className="pt-pattern-input"
+    />
   );
 }
