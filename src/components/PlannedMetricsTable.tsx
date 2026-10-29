@@ -72,6 +72,8 @@ export default function PlannedMetricsTable({
             <th>Peak intensity (%1RM)</th>
             <th>Monotony</th>
             <th>Exertion load</th>
+            <th>Peripheral EL</th>
+            <th>Central EL</th>
           </tr>
         </thead>
         <tbody>
@@ -101,6 +103,8 @@ export default function PlannedMetricsTable({
                 <td>{isTotal ? "—" : formatMetric(r?.peak_intensity, 1)}</td>
                 <td>{isTotal ? "—" : formatMetric(r?.monotony, 2)}</td>
                 <td>{isTotal ? "—" : formatMetric(r?.exertion_load, 0)}</td>
+                <td>{isTotal ? "—" : formatMetric(r?.peripheral, 1)}</td>
+                <td>{isTotal ? "—" : formatMetric(r?.central, 0)}</td>
               </tr>
             );
           })}

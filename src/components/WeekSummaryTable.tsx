@@ -96,6 +96,8 @@ export default function WeekSummaryTable({
           {activeLift !== "total" && <MetricTile label="Peak intensity (%1RM)" value={formatMetric(row.peak_intensity, 1)} />}
           {activeLift !== "total" && <MetricTile label="Monotony" value={formatMetric(row.monotony, 2)} />}
           {activeLift !== "total" && <MetricTile label="Exertion load" value={formatMetric(row.exertion_load, 0)} />}
+          {activeLift !== "total" && <MetricTile label="Peripheral EL" value={formatMetric(row.peripheral, 1)} />}
+          {activeLift !== "total" && <MetricTile label="Central EL" value={formatMetric(row.central, 0)} />}
         </div>
       ) : (
         <p className="muted">No data logged for this week yet.</p>

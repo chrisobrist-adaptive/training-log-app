@@ -35,17 +35,23 @@
 // bundle may rely on the same literal (not confirmed either way, so
 // left as-is rather than guessed at).
 
+import { useState } from "react";
 import { ResponsiveContainer, BarChart, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar, Area } from "recharts";
 import type { WeekWithBlock } from "../lib/queries";
 import type { WeeklyMetrics } from "../lib/types";
 
+type MetricKey = "volume" | "e1rm" | "acwr" | "ari" | "peak_intensity" | "exertion_load" | "peripheral" | "central";
+
 type ChartDef = {
-  key: "volume" | "e1rm" | "acwr" | "ari" | "peak_intensity" | "exertion_load";
+  key: MetricKey;
   label: string;
   type: "bar" | "line";
   color: string;
   digits: number;
   hideForTotal?: boolean;
+  // Alternative metrics this chart can switch to via a dropdown (the
+  // exertion-load chart: total / peripheral / central).
+  variants?: { key: MetricKey; label: string; digits: number }[];
 };
 
 const CHART_DEFS: ChartDef[] = [
@@ -54,8 +60,22 @@ const CHART_DEFS: ChartDef[] = [
   { key: "acwr", label: "ACWR", type: "line", color: "#e0b83a", digits: 2 },
   { key: "ari", label: "aRI (% of 1RM)", type: "line", color: "#c98a1f", digits: 2 },
   { key: "peak_intensity", label: "Peak intensity (% of 1RM)", type: "line", color: "#ff6b5e", digits: 1, hideForTotal: true },
-  { key: "exertion_load", label: "Exertion load", type: "line", color: "#c9739e", digits: 2, hideForTotal: true },
+  {
+    key: "exertion_load",
+    label: "Exertion load",
+    type: "line",
+    color: "#c9739e",
+    digits: 2,
+    hideForTotal: true,
+    variants: [
+      { key: "exertion_load", label: "Exertion load", digits: 2 },
+      { key: "peripheral", label: "Peripheral exertion load", digits: 2 },
+      { key: "central", label: "Central exertion load", digits: 2 },
+    ],
+  },
 ];
+
+const ALL_METRIC_KEYS: MetricKey[] = [...new Set(CHART_DEFS.flatMap((d) => [d.key, ...(d.variants ?? []).map((v) => v.key)]))];
 
 const AXIS_TICK_STYLE = { fontSize: 10, fill: "#9a9a9e" };
 const TOOLTIP_CONTENT_STYLE = { background: "#1c1c1e", border: "1px solid #38383b", borderRadius: 6, fontSize: 12 };
@@ -66,16 +86,21 @@ function roundToNearest(value: number, step: number): number {
 }
 
 export default function TrendChart({ weeks, metrics, lift }: { weeks: WeekWithBlock[]; metrics: WeeklyMetrics[]; lift: string }) {
+  // Which variant each switchable chart is showing, by its base key.
+  const [variantByChart, setVariantByChart] = useState<Partial<Record<MetricKey, MetricKey>>>({});
   const points: Record<string, string | number | null>[] = weeks.map((week) => {
     const row = metrics.find((m) => m.week_id === week.id && m.lift === lift);
     const point: Record<string, string | number | null> = { label: `${week.block.name} W${week.week_number}` };
-    for (const def of CHART_DEFS) {
-      const raw = row ? (row as unknown as Record<string, number | null>)[def.key] ?? null : null;
-      point[def.key] = def.key === "e1rm" && typeof raw === "number" ? roundToNearest(raw, 2.5) : raw;
+    for (const key of ALL_METRIC_KEYS) {
+      const raw = row ? (row as unknown as Record<string, number | null>)[key] ?? null : null;
+      point[key] = key === "e1rm" && typeof raw === "number" ? roundToNearest(raw, 2.5) : raw;
     }
     return point;
   });
-  const visibleDefs = CHART_DEFS.filter((def) => !(def.hideForTotal && lift === "total"));
+  const visibleDefs = CHART_DEFS.filter((def) => !(def.hideForTotal && lift === "total")).map((def) => {
+    const variant = def.variants?.find((v) => v.key === variantByChart[def.key]);
+    return { ...def, baseKey: def.key, ...(variant ? { key: variant.key, label: variant.label, digits: variant.digits } : {}) };
+  });
   const hasAnyData = points.some((point) => visibleDefs.some((def) => point[def.key] != null));
 
   if (!hasAnyData) return <p className="muted">Not enough history yet to chart trends.</p>;
@@ -83,8 +108,23 @@ export default function TrendChart({ weeks, metrics, lift }: { weeks: WeekWithBl
   return (
     <div className="chart-grid">
       {visibleDefs.map((def) => (
-        <div className="chart-card" key={def.key}>
-          <h3>{def.label}</h3>
+        <div className="chart-card" key={def.baseKey}>
+          {def.variants ? (
+            <select
+              className="chart-variant-select"
+              value={def.key}
+              onChange={(e) => setVariantByChart((prev) => ({ ...prev, [def.baseKey]: e.target.value as MetricKey }))}
+              aria-label="Choose metric"
+            >
+              {def.variants.map((v) => (
+                <option key={v.key} value={v.key}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <h3>{def.label}</h3>
+          )}
           <ResponsiveContainer width="100%" height={240}>
             {def.type === "bar" ? (
               <BarChart data={points} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
