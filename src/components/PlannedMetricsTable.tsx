@@ -102,9 +102,9 @@ export default function PlannedMetricsTable({
                 <td>{formatMetric(r?.ari, 1)}</td>
                 <td>{isTotal ? "—" : formatMetric(r?.peak_intensity, 1)}</td>
                 <td>{isTotal ? "—" : formatMetric(r?.monotony, 2)}</td>
-                <td>{isTotal ? "—" : formatMetric(r?.exertion_load, 0)}</td>
-                <td>{isTotal ? "—" : formatMetric(r?.peripheral, 1)}</td>
-                <td>{isTotal ? "—" : formatMetric(r?.central, 0)}</td>
+                <td>{isTotal ? "—" : formatMetric(r?.exertion_load, 2)}</td>
+                <td>{isTotal ? "—" : formatMetric(r?.peripheral, 2)}</td>
+                <td>{isTotal ? "—" : formatMetric(r?.central, 2)}</td>
               </tr>
             );
           })}
