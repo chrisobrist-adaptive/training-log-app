@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
-import { loadOneRmsForWeeks } from "../../lib/queries";
+import { fetchRpeChartLogs, loadOneRmsForWeeks } from "../../lib/queries";
 import BlockSwitcher from "../../components/BlockSwitcher";
 import CalendarStrip, { type CalendarSlot } from "../../components/CalendarStrip";
 import SessionPlayer from "../../components/SessionPlayer";
 import RestTimer, { type RestTimerHandle } from "../../components/RestTimer";
 import { blockStartMonday, calendarPosition } from "../../lib/blockCalendar";
+import type { RpeChartLog } from "../../lib/rpeChart";
 import type { Block, Week, TrainingDay, Exercise, LoggedSet } from "../../lib/types";
 
 // RECONSTRUCTED 2026-10-05 from the live production bundle, together with
@@ -346,6 +347,12 @@ export default function TrainingLog() {
   const [loggedSets, setLoggedSets] = useState<LoggedSet[]>([]);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const restTimerRef = useRef<RestTimerHandle>(null);
+  // Athlete's RPE chart (suggested weights for reps @ RPE sets with no load).
+  const [rpeChartLogs, setRpeChartLogs] = useState<RpeChartLog[] | null>(null);
+  useEffect(() => {
+    if (!profile) return;
+    fetchRpeChartLogs(profile.id).then(setRpeChartLogs);
+  }, [profile?.id]);
 
   const loadActiveWeekData = async () => {
     if (!activeWeekId) return;
@@ -588,6 +595,7 @@ export default function TrainingLog() {
               endSession(selectedDay);
             }}
             onSetCompleted={() => restTimerRef.current?.startDefault()}
+            rpeChartLogs={rpeChartLogs}
           />
         </div>
       )}

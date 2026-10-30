@@ -8,6 +8,7 @@ import WeekdayStrip from "../../components/WeekdayStrip";
 import LiftCategoryBadge from "../../components/LiftCategoryBadge";
 import WeekSummaryTable from "../../components/WeekSummaryTable";
 import VelocityChart from "../../components/VelocityChart";
+import RpeChart from "../../components/RpeChart";
 import { calendarPosition, todayWeekday, type CalendarPosition } from "../../lib/blockCalendar";
 import TrendChart from "../../components/TrendChart";
 import { plannedSetSummary, loggedSetsForExercise } from "../../lib/sessionPlayerHelpers";
@@ -462,6 +463,13 @@ export default function AthleteDetail() {
         <div className="section">
           <h2>Velocity</h2>
           <VelocityChart athleteId={athleteId} />
+        </div>
+      )}
+
+      {athleteId && (
+        <div className="section">
+          <h2>RPE chart</h2>
+          <RpeChart athleteId={athleteId} />
         </div>
       )}
 

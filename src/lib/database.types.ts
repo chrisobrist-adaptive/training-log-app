@@ -59,6 +59,7 @@ export type Database = {
           exercise_name: string
           id: string
           lift: string
+          rpe_chart_mode: string | null
           rpe_based_e1rm: boolean
         }
         Insert: {
@@ -68,6 +69,7 @@ export type Database = {
           exercise_name: string
           id?: string
           lift: string
+          rpe_chart_mode?: string | null
           rpe_based_e1rm?: boolean
         }
         Update: {
@@ -77,6 +79,7 @@ export type Database = {
           exercise_name?: string
           id?: string
           lift?: string
+          rpe_chart_mode?: string | null
           rpe_based_e1rm?: boolean
         }
       }
@@ -437,6 +440,17 @@ export type Database = {
     }
     Functions: {
       exertion_xl: { Args: { p_reps: number; p_rir: number }; Returns: number }
+      get_rpe_chart_logs: {
+        Args: { p_athlete_id: string }
+        Returns: {
+          lift: string
+          mode: string
+          n: number
+          pct: number
+          reps: number
+          rpe: number
+        }[]
+      }
       get_planned_week_metrics: {
         Args: { p_athlete_id: string }
         Returns: {

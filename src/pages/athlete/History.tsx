@@ -17,6 +17,7 @@ import type { WeeklyMetrics } from "../../lib/types";
 import WeekSummaryTable from "../../components/WeekSummaryTable";
 import TrendChart from "../../components/TrendChart";
 import VelocityChart from "../../components/VelocityChart";
+import RpeChart from "../../components/RpeChart";
 
 type LiftKey = "total" | "squat" | "bench" | "deadlift";
 
@@ -74,6 +75,12 @@ export default function History() {
         <div className="section">
           <h2>Velocity</h2>
           <VelocityChart athleteId={profile.id} />
+        </div>
+      )}
+      {profile && (
+        <div className="section">
+          <h2>RPE chart</h2>
+          <RpeChart athleteId={profile.id} />
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Week, TrainingDay, Exercise, LoggedSet } from "../lib/types";
 import ExerciseHistoryModal from "./ExerciseHistoryModal";
 import { clearRestTimerStorage } from "./RestTimer";
+import type { RpeChartLog } from "../lib/rpeChart";
 
 // RECONSTRUCTED 2026-10-05 from the live production bundle (minified
 // identifier `sq`), together with the new "view exercise history" feature
@@ -59,6 +60,8 @@ interface SessionPlayerProps {
   // Called when a set is marked completed — the Training page starts the
   // default rest on its header RestTimer.
   onSetCompleted?: () => void;
+  // Athlete's RPE chart — suggests weights for reps @ RPE sets with no load.
+  rpeChartLogs?: RpeChartLog[] | null;
 }
 
 export default function SessionPlayer({
@@ -73,6 +76,7 @@ export default function SessionPlayer({
   onExit,
   weekdayStrip,
   onSetCompleted,
+  rpeChartLogs,
 }: SessionPlayerProps) {
   const [stationIndex, setStationIndex] = useState(() => {
     try {
@@ -316,6 +320,7 @@ export default function SessionPlayer({
                   existing={existingForExercise.find((s) => s.set_number === setNumber) ?? null}
                   onSave={(patch) => onSaveSet(exercise.id, setNumber, patch)}
                   onSetCompleted={onSetCompleted}
+                  rpeChartLogs={rpeChartLogs}
                 />
               ))}
             </tbody>
@@ -349,6 +354,7 @@ export default function SessionPlayer({
                     existing={existingForExercise.find((s) => s.set_number === setNumber) ?? null}
                     onSave={(patch) => onSaveSet(exercise.id, setNumber, patch)}
                     onSetCompleted={onSetCompleted}
+                    rpeChartLogs={rpeChartLogs}
                   />
                 ))}
               </tbody>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Exercise, LoggedSet } from "../lib/types";
 import { prescribedWeight, backdownWeight, prescribedReps, backdownReps, type OneRms } from "../lib/exerciseDefaults";
+import { suggestFromChart, type RpeChartLog } from "../lib/rpeChart";
 
 // RECONSTRUCTED 2026-10-06 from the live production bundle (minified
 // identifier `cq`), the first time this file has been recovered — it was
@@ -34,6 +35,10 @@ interface SetRowProps {
   existing: LoggedSet | null;
   onSave: (patch: Partial<LoggedSet>) => void;
   onSetCompleted?: (() => void) | null;
+  // The athlete's RPE chart, for a suggested weight when the set is
+  // prescribed as reps @ RPE with no load (shown as a placeholder only — the
+  // athlete types whatever they actually lift).
+  rpeChartLogs?: RpeChartLog[] | null;
 }
 
 export default function SetRow({
@@ -45,6 +50,7 @@ export default function SetRow({
   existing,
   onSave,
   onSetCompleted,
+  rpeChartLogs,
 }: SetRowProps) {
   const defaultWeight = existing?.weight ?? (isBackdown ? backdownWeight(exercise, oneRms) : ascendingEntry ? ascendingEntry.weight : prescribedWeight(exercise, oneRms));
   const defaultReps = existing?.reps ?? (isBackdown ? backdownReps(exercise) : ascendingEntry ? ascendingEntry.reps : prescribedReps(exercise));
@@ -55,6 +61,19 @@ export default function SetRow({
   const [status, setStatus] = useState<SetStatus>((existing?.status as SetStatus) ?? null);
 
   const display = statusDisplay(status, rpe);
+
+  const lift = exercise.exercise_inventory?.lift;
+  const suggestion =
+    weight == null && !ascendingEntry
+      ? suggestFromChart(
+          rpeChartLogs,
+          lift,
+          exercise.exercise_inventory?.rpe_chart_mode,
+          reps,
+          isBackdown ? exercise.backdown_rpe : exercise.prescribed_rpe,
+          lift === "squat" ? oneRms?.squat_1rm : lift === "bench" ? oneRms?.bench_1rm : lift === "deadlift" ? oneRms?.deadlift_1rm : null,
+        )
+      : null;
 
   const save = (patch: Partial<LoggedSet>) => {
     const next = { weight, reps, rpe, status, ...patch };
@@ -87,6 +106,8 @@ export default function SetRow({
           aria-label={`Set ${setNumber} weight`}
           className="log-cell-input"
           value={weight ?? ""}
+          placeholder={suggestion ? `≈${suggestion.weight}` : undefined}
+          title={suggestion ? `Suggested from ${suggestion.personal ? "your" : "the default"} RPE chart: ${suggestion.pct.toFixed(1)}%` : undefined}
           onChange={(e) => setWeight(e.target.value === "" ? null : Number(e.target.value))}
           onBlur={() => save({ weight })}
         />

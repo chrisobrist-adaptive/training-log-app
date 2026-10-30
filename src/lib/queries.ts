@@ -1,5 +1,6 @@
 import { supabase } from "./supabaseClient";
 import type { Block, Week, WeeklyMetrics, WeekEffective1Rm } from "./types";
+import type { RpeChartLog } from "./rpeChart";
 
 export interface WeekWithBlock extends Week {
   block: Pick<Block, "id" | "name" | "type" | "order_index" | "status">;
@@ -116,4 +117,13 @@ export async function fetchVelocityHistory(athleteId: string): Promise<VelocityR
     exercise_name: r.exercises.exercise_inventory?.exercise_name ?? null,
     day_completed_at: r.exercises.training_days.completed_at,
   }));
+}
+
+// The athlete's personalised RPE-chart cells (last-5 averages); cells they
+// haven't logged come from the default chart in lib/rpeChart.ts.
+export async function fetchRpeChartLogs(athleteId: string): Promise<RpeChartLog[]> {
+  const { data, error } = await supabase.rpc("get_rpe_chart_logs", { p_athlete_id: athleteId });
+  if (error || !data) return [];
+  // numeric columns can arrive as strings — normalise.
+  return (data as RpeChartLog[]).map((r) => ({ ...r, rpe: Number(r.rpe), pct: Number(r.pct) }));
 }

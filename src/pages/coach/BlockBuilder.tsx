@@ -61,8 +61,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
-import { fetchPlannedWeeklyMetrics, fetchWeekOneRms } from "../../lib/queries";
-import { prescribedWeight, backdownWeight } from "../../lib/exerciseDefaults";
+import { fetchPlannedWeeklyMetrics, fetchRpeChartLogs, fetchWeekOneRms } from "../../lib/queries";
+import { suggestFromChart, type RpeChartLog } from "../../lib/rpeChart";
+import { prescribedWeight, backdownWeight, prescribedReps, backdownReps } from "../../lib/exerciseDefaults";
 import type {
   Block,
   Week,
@@ -202,6 +203,11 @@ export default function BlockBuilder() {
   const [inventory, setInventory] = useState<ExerciseInventory[]>([]);
   const [plannedMetrics, setPlannedMetrics] = useState<WeeklyMetrics[]>([]);
   const [weekOneRms, setWeekOneRms] = useState<Record<string, WeekEffective1Rm>>({});
+  // The athlete's RPE chart, for "reps @ RPE with no load" suggestions.
+  const [rpeChartLogs, setRpeChartLogs] = useState<RpeChartLog[] | null>(null);
+  useEffect(() => {
+    if (athleteId) fetchRpeChartLogs(athleteId).then(setRpeChartLogs);
+  }, [athleteId]);
   const [savingTmWeekId, setSavingTmWeekId] = useState<string | null>(null);
   const [activeWeekId, setActiveWeekId] = useState<string | null>(null);
   const [deploying, setDeploying] = useState(false);
@@ -326,6 +332,39 @@ export default function BlockBuilder() {
 
   const activeWeek = weeks.find((w) => w.id === activeWeekId) ?? null;
   const activeWeekOneRm = activeWeekId ? weekOneRms[activeWeekId] ?? null : null;
+
+  // For a set prescribed as reps @ RPE with no load, what the athlete's RPE
+  // chart says — with a "Use" button that fills the load % in. Purely a
+  // suggestion: leaving it, or typing a different load, is fine.
+  const chartSuggestionLine = (ex: Exercise, which: "main" | "backdown") => {
+    const isMain = which === "main";
+    if ((isMain ? ex.prescribed_load_pct : ex.backdown_load_pct) != null) return null;
+    if ((isMain ? ex.prescribed_load_fixed : ex.backdown_load_fixed) != null) return null;
+    const lift = ex.exercise_inventory?.lift;
+    const suggestion = suggestFromChart(
+      rpeChartLogs,
+      lift,
+      ex.exercise_inventory?.rpe_chart_mode,
+      isMain ? prescribedReps(ex) : backdownReps(ex),
+      isMain ? ex.prescribed_rpe : ex.backdown_rpe,
+      lift ? inheritedTm(activeWeekOneRm, lift) : null,
+    );
+    if (!suggestion) return null;
+    const pct = Math.round(suggestion.pct * 10) / 10;
+    return (
+      <div className="chart-suggestion">
+        <span className="muted">{suggestion.personal ? "ATHLETE'S RPE CHART: " : "RPE CHART: "}</span>
+        {pct}% ≈ {suggestion.weight} kg
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => updateExerciseField(ex.id, isMain ? { prescribed_load_pct: pct } : { backdown_load_pct: pct })}
+        >
+          Use
+        </button>
+      </div>
+    );
+  };
   const activeWeekDays = trainingDays.filter((d) => d.week_id === activeWeekId).sort((a, b) => a.order_index - b.order_index);
   const exercisesForDay = (dayId: string) => exercises.filter((ex) => ex.training_day_id === dayId).sort((a, b) => a.order_index - b.order_index);
 
@@ -874,6 +913,7 @@ export default function BlockBuilder() {
                           {preview}
                         </div>
                       )}
+                      {chartSuggestionLine(ex, "main")}
                       <div className="exercise-row">
                         <ExerciseInventoryPicker
                           key={ex.id}
@@ -1064,6 +1104,7 @@ export default function BlockBuilder() {
 
                       {backdownExerciseIds.has(ex.id) ? (
                         <>
+                          {chartSuggestionLine(ex, "backdown")}
                           {(() => {
                             const preview2 = backdownSetPreview(ex, activeWeekOneRm);
                             if (!preview2) return null;
