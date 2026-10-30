@@ -10,7 +10,7 @@ import WeekSummaryTable, { LIFT_TABS } from "../../components/WeekSummaryTable";
 import AthleteLayout from "../../components/AthleteLayout";
 import VelocityChart from "../../components/VelocityChart";
 import RpeChart from "../../components/RpeChart";
-import { calendarPosition, todayWeekday, type CalendarPosition } from "../../lib/blockCalendar";
+import { blockStartMonday, calendarPosition, todayWeekday, type CalendarPosition } from "../../lib/blockCalendar";
 import TrendChart from "../../components/TrendChart";
 import { plannedSetSummary, loggedSetsForExercise } from "../../lib/sessionPlayerHelpers";
 import type { Block, Week, TrainingDay, Exercise, LoggedSet, Profile, WeeklyMetrics, WeekEffective1Rm } from "../../lib/types";
@@ -239,6 +239,7 @@ export default function AthleteDetail() {
     setActiveWeekId(defaultWeek?.id ?? null);
   };
 
+  const activeBlock = blocks.find((b) => b.id === activeBlockId) ?? null;
   const weeksInActiveBlock = useMemo(() => weeks.filter((w) => w.block_id === activeBlockId), [weeks, activeBlockId]);
 
   const metricsByLift = useMemo(() => {
@@ -400,48 +401,38 @@ export default function AthleteDetail() {
         {blocks.length === 0 ? (
           <p className="muted">No blocks yet.</p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {blocks.map((b) => (
-                <tr key={b.id}>
-                  <td>{b.name}</td>
-                  <td>{b.type}</td>
-                  <td>
-                    <span className={`badge badge-${b.status}`}>{b.status}</span>
-                  </td>
-                  <td>
-                    <div className="toolbar">
-                      <Link to={`/athletes/${athleteId}/blocks/${b.id}`}>Edit</Link>
-                      <button className="secondary-button" onClick={() => duplicateBlock(b)} disabled={duplicatingBlockId != null}>
-                        {duplicatingBlockId === b.id ? "Duplicating…" : "Duplicate"}
-                      </button>
-                      <button className="danger-button" onClick={() => deleteBlock(b)}>
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            {/* One block picker for the whole Overview: it also drives the
+                weekly metrics and session log below. */}
+            <BlockSwitcher blocks={blocks} activeBlockId={activeBlockId} completedBlockIds={completedBlockIds} onSelect={selectBlock} />
+            {activeBlock && (
+              <div className="block-card">
+                <Link to={`/athletes/${athleteId}/blocks/${activeBlock.id}`} className="block-card-main" title="Open in the program builder">
+                  <div className="block-card-title">
+                    <strong>{activeBlock.name}</strong>
+                    <span className={`badge badge-${activeBlock.status}`}>{activeBlock.status}</span>
+                    {activeBlock.type && <span className="muted">{activeBlock.type}</span>}
+                  </div>
+                  <div className="muted">{blockDatesText(activeBlock, weeksInActiveBlock.length)}</div>
+                  <span className="block-card-open">Open in program builder →</span>
+                </Link>
+                <div className="block-card-actions">
+                  <button className="secondary-button" onClick={() => duplicateBlock(activeBlock)} disabled={duplicatingBlockId != null}>
+                    {duplicatingBlockId === activeBlock.id ? "Duplicating…" : "Duplicate"}
+                  </button>
+                  <button className="danger-button" onClick={() => deleteBlock(activeBlock)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
       )}
 
       {view === "overview" && weeks.length > 0 && (
         <div className="section">
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
-            <span className="muted">Viewing:</span>
-            <BlockSwitcher blocks={blocks} activeBlockId={activeBlockId} completedBlockIds={completedBlockIds} onSelect={selectBlock} />
-          </div>
           <h2>Weekly metrics</h2>
           <div className="week-tabs">
             {weeksInActiveBlock.map((w) => (
@@ -634,4 +625,16 @@ function NoteFlag() {
       />
     </svg>
   );
+}
+
+// "4 weeks · Mon 26 Oct – Sun 22 Nov" (calendar dates from the Monday on/after
+// deploy), or just the length for a block that hasn't been deployed.
+function blockDatesText(block: Block, weekCount: number): string {
+  const length = `${weekCount} week${weekCount === 1 ? "" : "s"}`;
+  if (!block.deployed_at || weekCount === 0) return block.status === "draft" ? `${length} · not deployed yet` : length;
+  const start = blockStartMonday(block.deployed_at);
+  const end = new Date(start);
+  end.setDate(end.getDate() + weekCount * 7 - 1);
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  return `${length} · ${fmt(start)} – ${fmt(end)}`;
 }
