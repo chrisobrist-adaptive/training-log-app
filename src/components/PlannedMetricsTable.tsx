@@ -68,12 +68,12 @@ export default function PlannedMetricsTable({
             <th>Volume</th>
             <th>Sets</th>
             <th>ACWR</th>
-            <th>aRI (%1RM)</th>
-            <th>Peak intensity (%1RM)</th>
+            <th>aRI</th>
+            <th>Peak intensity</th>
             <th>Monotony</th>
             <th>Exertion load</th>
-            <th>Peripheral EL</th>
-            <th>Central EL</th>
+            <th>PXL</th>
+            <th>CXL</th>
           </tr>
         </thead>
         <tbody>
