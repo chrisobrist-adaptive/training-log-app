@@ -61,7 +61,7 @@ export default function PlannedMetricsTable({
 }) {
   return (
     <div style={{ overflowX: "auto" }}>
-      <table>
+      <table className="metrics-summary-table">
         <thead>
           <tr>
             <th>Lift</th>
