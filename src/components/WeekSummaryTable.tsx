@@ -92,12 +92,12 @@ export default function WeekSummaryTable({
           {activeLift !== "total" && (
             <MetricTile label="E1RM" value={formatMetric(row.e1rm == null ? null : roundToNearest(row.e1rm, 2.5), 1)} sub={row.e1rm_pct_change} />
           )}
-          <MetricTile label="aRI (%1RM)" value={formatMetric(row.ari, 1)} />
-          {activeLift !== "total" && <MetricTile label="Peak intensity (%1RM)" value={formatMetric(row.peak_intensity, 1)} />}
+          <MetricTile label="aRI" value={formatMetric(row.ari, 1)} />
+          {activeLift !== "total" && <MetricTile label="Peak intensity" value={formatMetric(row.peak_intensity, 1)} />}
           {activeLift !== "total" && <MetricTile label="Monotony" value={formatMetric(row.monotony, 2)} />}
           {activeLift !== "total" && <MetricTile label="Exertion load" value={formatMetric(row.exertion_load, 2)} />}
-          {activeLift !== "total" && <MetricTile label="Peripheral EL" value={formatMetric(row.peripheral, 2)} />}
-          {activeLift !== "total" && <MetricTile label="Central EL" value={formatMetric(row.central, 2)} />}
+          {activeLift !== "total" && <MetricTile label="PXL" value={formatMetric(row.peripheral, 2)} />}
+          {activeLift !== "total" && <MetricTile label="CXL" value={formatMetric(row.central, 2)} />}
         </div>
       ) : (
         <p className="muted">No data logged for this week yet.</p>
