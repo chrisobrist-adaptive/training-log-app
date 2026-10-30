@@ -75,7 +75,7 @@ export default function App() {
             }
           />
           <Route
-            path="/athletes/:athleteId"
+            path="/athletes/:athleteId/:tab?"
             element={
               <Layout>
                 <AthleteDetail />

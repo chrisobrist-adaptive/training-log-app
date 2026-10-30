@@ -37,7 +37,7 @@ import { formatMetric, pctChangeClass } from "../lib/metricsFormat";
 
 type LiftKey = "total" | "squat" | "bench" | "deadlift";
 
-const LIFT_TABS: { key: LiftKey; label: string }[] = [
+export const LIFT_TABS: { key: LiftKey; label: string }[] = [
   { key: "total", label: "Weekly total" },
   { key: "squat", label: "Squat" },
   { key: "bench", label: "Bench" },

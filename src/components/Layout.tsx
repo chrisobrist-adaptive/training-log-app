@@ -15,7 +15,7 @@ import { supabase } from "../lib/supabaseClient";
 // The "wide" main-content treatment is only used for the coach's
 // athlete-detail and block-builder pages (both need more horizontal room
 // for tables) — same regex as the live bundle's `Gc`.
-const WIDE_PAGE_PATTERN = /^\/athletes\/[^/]+(\/blocks\/[^/]+)?$/;
+const WIDE_PAGE_PATTERN = /^\/athletes\/[^/]+(\/blocks\/[^/]+|\/graphs|\/rpe-chart|\/periodization)?$/;
 
 function AppShell({ children }: { children: ReactNode }) {
   const { profile } = useAuth();

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import type { PeriodizationBlock, PeriodizationMacrocycle, Profile } from "../../lib/types";
+import AthleteLayout from "../../components/AthleteLayout";
 
 // Fixed set — a real <select> instead of the old free-text-with-suggestions
 // input, so every block's phase is always one of exactly these four.
@@ -315,20 +316,13 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
   const macrocycleSpans = spansBy(mondays, byKey, (cell) => cell?.macrocycle.id ?? null);
   const blockSpans = spansBy(mondays, byKey, (cell) => cell?.block.id ?? null);
 
-  return (
+  const page = (
     <div>
       <div className="page-header">
         <div>
           <h1>{readOnly ? "Plan" : "Annual plan"}</h1>
           <p className="page-subtitle">{readOnly ? "Your annual training plan" : athlete.name}</p>
         </div>
-        {!readOnly && (
-          <div className="toolbar">
-            <Link to={`/athletes/${athleteId}`} className="secondary-button">
-              ← Back to {athlete.name.split(" ")[0]}
-            </Link>
-          </div>
-        )}
       </div>
 
       {nextMeet && (
@@ -591,6 +585,15 @@ export default function Periodization({ athleteId: athleteIdProp, readOnly = fal
       </div>
       )}
     </div>
+  );
+  // Coach view sits in the athlete sidebar; the athlete's own read-only Plan
+  // tab doesn't.
+  return readOnly || !athleteId ? (
+    page
+  ) : (
+    <AthleteLayout athleteId={athleteId} active="plan">
+      {page}
+    </AthleteLayout>
   );
 }
 

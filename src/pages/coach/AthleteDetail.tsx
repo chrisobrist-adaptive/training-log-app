@@ -6,7 +6,8 @@ import { getFunctionInvokeError } from "../../lib/functionError";
 import BlockSwitcher from "../../components/BlockSwitcher";
 import WeekdayStrip from "../../components/WeekdayStrip";
 import LiftCategoryBadge from "../../components/LiftCategoryBadge";
-import WeekSummaryTable from "../../components/WeekSummaryTable";
+import WeekSummaryTable, { LIFT_TABS } from "../../components/WeekSummaryTable";
+import AthleteLayout from "../../components/AthleteLayout";
 import VelocityChart from "../../components/VelocityChart";
 import RpeChart from "../../components/RpeChart";
 import { calendarPosition, todayWeekday, type CalendarPosition } from "../../lib/blockCalendar";
@@ -40,7 +41,11 @@ import type { Block, Week, TrainingDay, Exercise, LoggedSet, Profile, WeeklyMetr
 interface AthleteDetailExercise extends Exercise {}
 
 export default function AthleteDetail() {
-  const { athleteId } = useParams<{ athleteId: string }>();
+  // Which sidebar tab is showing — from the URL (/athletes/:id, /graphs,
+  // /rpe-chart), all on this one component so switching tabs keeps the
+  // loaded data instead of refetching.
+  const { athleteId, tab } = useParams<{ athleteId: string; tab?: string }>();
+  const view = tab === "graphs" ? "graphs" : tab === "rpe-chart" ? "rpe" : "overview";
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -361,7 +366,7 @@ export default function AthleteDetail() {
     : [];
 
   return (
-    <div>
+    <AthleteLayout athleteId={athleteId!} active={view}>
       <div className="page-header">
         <div>
           <h1>{profile.name}</h1>
@@ -375,19 +380,16 @@ export default function AthleteDetail() {
             </p>
           )}
         </div>
-        <div className="toolbar">
-          <Link to="/" className="secondary-button">
-            ← All athletes
-          </Link>
-          <Link to={`/athletes/${athleteId}/periodization`} className="secondary-button">
-            Annual training plan
-          </Link>
-          <button className="danger-button" onClick={deleteAthlete} disabled={deletingAthlete}>
-            {deletingAthlete ? "Deleting…" : "Delete athlete"}
-          </button>
-        </div>
+        {view === "overview" && (
+          <div className="toolbar">
+            <button className="danger-button" onClick={deleteAthlete} disabled={deletingAthlete}>
+              {deletingAthlete ? "Deleting…" : "Delete athlete"}
+            </button>
+          </div>
+        )}
       </div>
 
+      {view === "overview" && (
       <div className="section">
         <div className="page-header" style={{ marginBottom: "0.75rem" }}>
           <h2 style={{ margin: 0 }}>Blocks</h2>
@@ -432,8 +434,9 @@ export default function AthleteDetail() {
           </table>
         )}
       </div>
+      )}
 
-      {weeks.length > 0 && (
+      {view === "overview" && weeks.length > 0 && (
         <div className="section">
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
             <span className="muted">Viewing:</span>
@@ -454,26 +457,38 @@ export default function AthleteDetail() {
             ))}
           </div>
           <WeekSummaryTable metricsByLift={metricsByLift} activeLift={activeLift} onLiftChange={setActiveLift} />
-          <h2 style={{ marginTop: "1.5rem" }}>Trend across blocks</h2>
-          <TrendChart weeks={weeks} metrics={weeklyMetrics} lift={activeLift} />
         </div>
       )}
 
-      {athleteId && (
+      {view === "graphs" && (
+        <div className="section">
+          <h2>Trend across blocks</h2>
+          <div className="lift-tabs">
+            {LIFT_TABS.map((t) => (
+              <button key={t.key} type="button" className={activeLift === t.key ? "active" : ""} onClick={() => setActiveLift(t.key)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {weeks.length > 0 ? <TrendChart weeks={weeks} metrics={weeklyMetrics} lift={activeLift} /> : <p className="muted">No blocks yet.</p>}
+        </div>
+      )}
+
+      {view === "graphs" && athleteId && (
         <div className="section">
           <h2>Velocity</h2>
           <VelocityChart athleteId={athleteId} />
         </div>
       )}
 
-      {athleteId && (
+      {view === "rpe" && athleteId && (
         <div className="section">
           <h2>RPE chart</h2>
           <RpeChart athleteId={athleteId} />
         </div>
       )}
 
-      {weeks.length > 0 && (
+      {view === "overview" && weeks.length > 0 && (
         <div className="section">
           <h2>Session log</h2>
           <p className="muted" style={{ marginTop: "-0.5rem", marginBottom: "1rem" }}>
@@ -604,7 +619,7 @@ export default function AthleteDetail() {
           )}
         </div>
       )}
-    </div>
+    </AthleteLayout>
   );
 }
 
