@@ -130,9 +130,9 @@ function AppShell({ children }: { children: ReactNode }) {
         <Link to="/" className="brand">
           <img src="/logo.png" alt="Adaptive Performance" />
         </Link>
-        <nav>
-          <Link to="/">Athletes</Link>
-        </nav>
+        {/* (No "Athletes" link: the logo and the athlete sidebar's "All
+            athletes" both go there.) */}
+        <div className="topbar-spacer" />
         <div className="topbar-right">
           <div ref={menuRef} style={{ position: "relative" }}>
             <button
