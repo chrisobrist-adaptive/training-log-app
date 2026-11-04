@@ -63,7 +63,7 @@ export default function VelocityChart({ athleteId }: { athleteId: string }) {
   }, [rows, activeId]);
 
   if (rows === null) return <p className="muted">Loading…</p>;
-  if (exercises.length === 0) return <p className="muted">No velocity logged yet. Add it from the Velocity section on any exercise in the training log.</p>;
+  if (exercises.length === 0) return <p className="muted">No velocity logged yet.</p>;
 
   return (
     <div>

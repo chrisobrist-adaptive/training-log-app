@@ -44,7 +44,6 @@ export default function RpeChart({ athleteId }: { athleteId: string }) {
   if (logs === null) return <p className="muted">Loading…</p>;
 
   const oneRm = oneRms ? oneRms[`${lift}_1rm`] : null;
-  const personalCount = logs.filter((l) => l.lift === lift && l.mode === mode).length;
 
   return (
     <div className="rpe-chart">
@@ -73,12 +72,6 @@ export default function RpeChart({ athleteId }: { athleteId: string }) {
           </button>
         </div>
       </div>
-      <p className="muted rpe-chart-note">
-        {personalCount > 0
-          ? `Shaded cells are from logged sets (average of up to the last 5); the rest are the default chart.`
-          : `No logged sets for this lift yet — showing the default chart.`}
-        {unit === "kg" && (oneRm ? ` Loads use the current 1RM of ${oneRm} kg.` : " No 1RM set for this lift, so loads can't be shown.")}
-      </p>
       <div className="pt-scroll">
         <table className="rpe-chart-table">
           <thead>

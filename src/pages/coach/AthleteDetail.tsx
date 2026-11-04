@@ -482,10 +482,6 @@ export default function AthleteDetail() {
       {view === "overview" && weeks.length > 0 && (
         <div className="section">
           <h2>Session log</h2>
-          <p className="muted" style={{ marginTop: "-0.5rem", marginBottom: "1rem" }}>
-            Every set {profile.name.split(" ")[0]} actually logged, with its own weight, reps and RPE (shown in green) — or what was planned, for
-            anything not logged yet.
-          </p>
           <div className="week-tabs">
             {weeksInActiveBlock.map((w) => (
               <button key={w.id} className={activeWeekId === w.id ? "active" : ""} onClick={() => setActiveWeekId(w.id)} type="button">
