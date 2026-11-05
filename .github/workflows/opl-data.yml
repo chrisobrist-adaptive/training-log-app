@@ -1,0 +1,40 @@
+# Weekly refresh of the competition field used by the coach's Competition tab.
+# Downloads OpenPowerlifting's public bulk export, keeps only APA (APLA), APL
+# (AusPL) and IPF full-power results from the last 3 years
+# (scripts/opl/build_field.py), and publishes opl-field.json as the single
+# commit on the `opl-data` branch, which the app reads from
+# raw.githubusercontent.com. The commit message tells Netlify to skip it, so
+# these updates never trigger a site deploy.
+name: Update OpenPowerlifting field
+
+on:
+  schedule:
+    - cron: "0 18 * * 0" # Sundays 18:00 UTC (Monday morning in Australia)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download OpenPowerlifting export
+        run: curl -fsSL -o opl.zip https://openpowerlifting.gitlab.io/opl-csv/files/openpowerlifting-latest.zip
+
+      - name: Build field file
+        run: python3 scripts/opl/build_field.py opl.zip opl-field.json
+
+      - name: Publish to the opl-data branch
+        run: |
+          mkdir publish && mv opl-field.json publish/
+          cd publish
+          git init -q
+          git checkout -q -b opl-data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add opl-field.json
+          git commit -q -m "Update OpenPowerlifting field [skip ci] [skip netlify]"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" opl-data
