@@ -23,14 +23,10 @@ import {
 // Coach-only: where this athlete's totals would place against real
 // competition results (OpenPowerlifting — see lib/competition.ts).
 //   Training total  = current training maxes (block 1RMs, else profile).
-//   Estimated maxes = best competition-lift e1RMs from the last 12 weeks of
-//                     logged sets (same formula as Macro review), to 2.5 kg.
 //   Projected total = heaviest training lifts carried forward to the next
 //                     meet in the annual plan along their trend, +2% taper.
 
 const ESTIMATE_WEEKS = 12;
-const toPlate = (v: number) => Math.round(v / 2.5) * 2.5;
-const e1rm = (s: MacroSet) => s.weight * (1 + (s.reps + (s.rpe != null ? 10 - s.rpe : 0)) / 30);
 
 function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
@@ -67,7 +63,7 @@ export default function CompetitionPanel({
   const [birthYear, setBirthYear] = useState(profile.birth_year != null ? String(profile.birth_year) : "");
   const [oplName, setOplName] = useState(profile.opl_name ?? "");
   // Which maxes the placing simulation starts from.
-  const [simBase, setSimBase] = useState<"estimate" | "projected" | "training">("estimate");
+  const [simBase, setSimBase] = useState<"projected" | "training">("projected");
   // Next meet in the annual plan (undefined = loading).
   const [nextMeet, setNextMeet] = useState<{ name: string; meet_date: string } | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
@@ -116,19 +112,6 @@ export default function CompetitionPanel({
     tm.squat != null && tm.bench != null && tm.deadlift != null
       ? tm.squat + tm.bench + tm.deadlift
       : null;
-  const estimate = useMemo(() => {
-    if (!sets) return null;
-    const since = new Date(Date.now() - ESTIMATE_WEEKS * 7 * 86400000).toISOString();
-    const best = (lift: string) => {
-      const vals = sets
-        .filter((s) => s.lift === lift && s.mode === "competition" && s.weight > 0 && s.reps > 0 && s.status !== "skipped" && s.created_at >= since)
-        .map(e1rm);
-      return vals.length ? toPlate(Math.max(...vals)) : null;
-    };
-    const lifts = { squat: best("squat"), bench: best("bench"), deadlift: best("deadlift") };
-    const total = lifts.squat != null && lifts.bench != null && lifts.deadlift != null ? lifts.squat + lifts.bench + lifts.deadlift : null;
-    return { ...lifts, total };
-  }, [sets]);
 
   // Heaviest training lifts carried forward to the next meet (see lib/maxProjection.ts).
   const projection = useMemo(() => {
@@ -204,7 +187,7 @@ export default function CompetitionPanel({
     if (!field || !results || !query) return null;
     const training: Record<LiftKey, number | null> = tm;
     const pick = (l: LiftKey) =>
-      simBase === "estimate" ? (estimate?.[l] ?? training[l]) : simBase === "projected" ? (projection?.lifts[l]?.projected ?? null) : training[l];
+      simBase === "projected" ? (projection?.lifts[l]?.projected ?? null) : training[l];
     const maxes = { squat: pick("squat"), bench: pick("bench"), deadlift: pick("deadlift") };
     if (maxes.squat == null || maxes.bench == null || maxes.deadlift == null) return null;
     const typical = typicalModel(field, query.federation, query.equipment);
@@ -222,19 +205,16 @@ export default function CompetitionPanel({
       seed,
     });
     return { result, model, maxes: maxes as Record<LiftKey, number> };
-  }, [field, results, query, simBase, estimate, projection, profile, tm.squat, tm.bench, tm.deadlift]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [field, results, query, simBase, projection, profile, tm.squat, tm.bench, tm.deadlift]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const detailsSummary =
     compSex && compBw
       ? `${compSex === "M" ? "Male" : "Female"} · ${compBw} kg · ${compEquipment === "Raw" ? "Raw" : "Equipped"}${profile.birth_year ? ` · born ${profile.birth_year}` : ""}${profile.opl_name ? ` · OPL: ${profile.opl_name}` : ""}`
       : null;
 
-  // Switch between estimated and training maxes for the simulation.
+  // Switch between projected and training maxes for the simulation.
   const simToggle = (
     <div className="lift-tabs" style={{ marginBottom: 0 }}>
-      <button type="button" className={simBase === "estimate" ? "active" : ""} onClick={() => setSimBase("estimate")}>
-        Estimated maxes
-      </button>
       <button type="button" className={simBase === "projected" ? "active" : ""} onClick={() => setSimBase("projected")}>
         Projected maxes
       </button>
@@ -388,9 +368,9 @@ export default function CompetitionPanel({
                   <p className="muted" style={{ margin: 0 }}>
                     {simBase === "training"
                       ? `Add ${profile.name.split(" ")[0]}'s squat, bench and deadlift 1RMs to use training maxes.`
-                      : simBase === "projected" && nextMeet === null
+                      : nextMeet === null
                         ? `Add a meet to ${profile.name.split(" ")[0]}'s annual plan to project maxes.`
-                        : "Not enough logged squat, bench and deadlift sets to estimate maxes yet."}
+                        : "Not enough logged squat, bench and deadlift sets to project maxes yet."}
                   </p>
                 </div>
               )}
@@ -418,7 +398,6 @@ export default function CompetitionPanel({
                         { label: "Win", v: pct(within(1)) },
                         { label: "Podium (top 3)", v: pct(within(3)) },
                         { label: "Top 10", v: pct(within(10)) },
-                        { label: "Bomb-out risk", v: pct(result.bombs) },
                       ].map((t) => (
                         <div key={t.label} className="metric-tile">
                           <div className="value">{fmtPct(t.v)}</div>
@@ -552,9 +531,9 @@ export default function CompetitionPanel({
                                   {profile.name} · {row.label}
                                 </strong>
                               </td>
-                              <td>{row.label === "Training total" ? tm.squat : row.label === "Projected total" ? projection?.lifts.squat?.projected : estimate?.squat}</td>
-                              <td>{row.label === "Training total" ? tm.bench : row.label === "Projected total" ? projection?.lifts.bench?.projected : estimate?.bench}</td>
-                              <td>{row.label === "Training total" ? tm.deadlift : row.label === "Projected total" ? projection?.lifts.deadlift?.projected : estimate?.deadlift}</td>
+                              <td>{row.label === "Training total" ? tm.squat : projection?.lifts.squat?.projected}</td>
+                              <td>{row.label === "Training total" ? tm.bench : projection?.lifts.bench?.projected}</td>
+                              <td>{row.label === "Training total" ? tm.deadlift : projection?.lifts.deadlift?.projected}</td>
                               <td>
                                 <strong>{row.total}</strong>
                               </td>
