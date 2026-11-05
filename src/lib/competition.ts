@@ -27,6 +27,9 @@ export interface FieldResult {
   squat: number | null;
   bench: number | null;
   deadlift: number | null;
+  // Attempts in OpenPowerlifting form: positive = made, negative = missed,
+  // null = not taken.
+  attempts: { squat: (number | null)[]; bench: (number | null)[]; deadlift: (number | null)[] };
   total: number;
   place: string | null;
   tested: boolean;
@@ -66,6 +69,11 @@ export function loadField(): Promise<FieldData> {
             squat: get(row, "Best3SquatKg"),
             bench: get(row, "Best3BenchKg"),
             deadlift: get(row, "Best3DeadliftKg"),
+            attempts: {
+              squat: [get(row, "Squat1Kg"), get(row, "Squat2Kg"), get(row, "Squat3Kg")],
+              bench: [get(row, "Bench1Kg"), get(row, "Bench2Kg"), get(row, "Bench3Kg")],
+              deadlift: [get(row, "Deadlift1Kg"), get(row, "Deadlift2Kg"), get(row, "Deadlift3Kg")],
+            },
             total: get(row, "TotalKg"),
             place: get(row, "Place"),
             tested: get(row, "Tested") === "Yes",

@@ -1,4 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
+import { athleteModel, progressionRatios, simulatePlacing, typicalModel, type LiftKey } from "../lib/placingSimulation";
 import { supabase } from "../lib/supabaseClient";
 import { fetchMacroSets, type MacroSet } from "../lib/queries";
 import type { Profile } from "../lib/types";
@@ -51,6 +53,9 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
   const [bodyweight, setBodyweight] = useState(profile.comp_bodyweight != null ? String(profile.comp_bodyweight) : "");
   const [equipment, setEquipment] = useState(profile.comp_equipment ?? "Raw");
   const [birthYear, setBirthYear] = useState(profile.birth_year != null ? String(profile.birth_year) : "");
+  const [oplName, setOplName] = useState(profile.opl_name ?? "");
+  // Which maxes the placing simulation starts from.
+  const [simBase, setSimBase] = useState<"estimate" | "training">("estimate");
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(profile.comp_sex == null || profile.comp_bodyweight == null);
 
@@ -65,6 +70,7 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
       comp_bodyweight: bodyweight === "" ? null : Number(bodyweight),
       comp_equipment: equipment === "Single-ply" ? "Single-ply" : "Raw",
       birth_year: birthYear === "" ? null : Number(birthYear),
+      opl_name: oplName.trim() === "" ? null : oplName.trim(),
     };
     setSaving(true);
     const { error } = await supabase.from("profiles").update(patch).eq("id", profile.id);
@@ -148,9 +154,37 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
     return out;
   }, [results, allResults, showAll, trainingTotal, estimate?.total]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Probability of placing (see lib/placingSimulation.ts).
+  const simulation = useMemo(() => {
+    if (!field || !results || !query) return null;
+    const training: Record<LiftKey, number | null> = {
+      squat: profile.squat_1rm != null ? Number(profile.squat_1rm) : null,
+      bench: profile.bench_1rm != null ? Number(profile.bench_1rm) : null,
+      deadlift: profile.deadlift_1rm != null ? Number(profile.deadlift_1rm) : null,
+    };
+    const pick = (l: LiftKey) => (simBase === "estimate" ? (estimate?.[l] ?? training[l]) : training[l]);
+    const maxes = { squat: pick("squat"), bench: pick("bench"), deadlift: pick("deadlift") };
+    if (maxes.squat == null || maxes.bench == null || maxes.deadlift == null) return null;
+    const typical = typicalModel(field, query.federation, query.equipment);
+    const model = athleteModel(field, profile.opl_name, typical);
+    // Stable seed per athlete + settings, so results don't flicker.
+    const key = [profile.id, query.federation, query.weightClass, query.months, query.ageGroup, query.testedOnly, simBase].join("|");
+    let seed = 0;
+    for (let i = 0; i < key.length; i++) seed = (seed * 31 + key.charCodeAt(i)) | 0;
+    const result = simulatePlacing({
+      maxes: maxes as Record<LiftKey, number>,
+      model,
+      // The athlete's own past results aren't competitors.
+      competitorBests: results.filter((r) => r.name.toLowerCase() !== (profile.opl_name ?? "").trim().toLowerCase()).map((r) => r.total),
+      ratios: progressionRatios(field, query.federation, query.equipment),
+      seed,
+    });
+    return { result, model, maxes: maxes as Record<LiftKey, number> };
+  }, [field, results, query, simBase, estimate, profile]);
+
   const detailsSummary =
     compSex && compBw
-      ? `${compSex === "M" ? "Male" : "Female"} · ${compBw} kg · ${compEquipment === "Raw" ? "Raw" : "Equipped"}${profile.birth_year ? ` · born ${profile.birth_year}` : ""}`
+      ? `${compSex === "M" ? "Male" : "Female"} · ${compBw} kg · ${compEquipment === "Raw" ? "Raw" : "Equipped"}${profile.birth_year ? ` · born ${profile.birth_year}` : ""}${profile.opl_name ? ` · OPL: ${profile.opl_name}` : ""}`
       : null;
 
   return (
@@ -188,6 +222,10 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
             <label>
               Birth year
               <input type="number" inputMode="numeric" value={birthYear} onChange={(e) => setBirthYear(e.target.value)} />
+            </label>
+            <label>
+              OpenPowerlifting name
+              <input className="competition-opl-input" value={oplName} onChange={(e) => setOplName(e.target.value)} placeholder="As shown on OpenPowerlifting" />
             </label>
             <button type="button" className="primary-button" onClick={saveDetails} disabled={saving || !sex || !bodyweight}>
               {saving ? "Saving…" : "Save"}
@@ -272,6 +310,107 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
                   );
                 })}
               </div>
+
+              {simulation && results.length > 0 && (() => {
+                const { result, model, maxes } = simulation;
+                const pct = (n: number) => (result.sims ? (n / result.sims) * 100 : 0);
+                const within = (k: number) => result.placeCounts.slice(0, k).reduce((a, b) => a + b, 0);
+                const SHOWN = 15;
+                const chart = [
+                  ...result.placeCounts.slice(0, SHOWN).map((c, i) => ({ label: ordinal(i + 1), p: pct(c) })),
+                  ...(result.placeCounts.length > SHOWN
+                    ? [{ label: `${SHOWN + 1}+`, p: pct(result.placeCounts.slice(SHOWN).reduce((a, b) => a + b, 0)) }]
+                    : []),
+                  { label: "Bomb", p: pct(result.bombs) },
+                ];
+                const fmtPct = (v: number) => (v > 0 && v < 1 ? "<1%" : `${Math.round(v)}%`);
+                return (
+                  <div className="section">
+                    <div className="competition-field-head">
+                      <h2 style={{ margin: 0 }}>Chance of placing</h2>
+                      <div className="lift-tabs" style={{ marginBottom: 0 }}>
+                        <button type="button" className={simBase === "estimate" ? "active" : ""} onClick={() => setSimBase("estimate")}>
+                          Estimated maxes
+                        </button>
+                        <button type="button" className={simBase === "training" ? "active" : ""} onClick={() => setSimBase("training")}>
+                          Training maxes
+                        </button>
+                      </div>
+                    </div>
+                    <div className="competition-thresholds">
+                      {[
+                        { label: "Win", v: pct(within(1)) },
+                        { label: "Podium (top 3)", v: pct(within(3)) },
+                        { label: "Top 10", v: pct(within(10)) },
+                        { label: "Bomb-out risk", v: pct(result.bombs) },
+                      ].map((t) => (
+                        <div key={t.label} className="metric-tile">
+                          <div className="value">{fmtPct(t.v)}</div>
+                          <div className="label">{t.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {result.totals && (
+                      <div className="macro-card-line">
+                        Likely meet-day total <strong>{result.totals.p50} kg</strong>
+                        <span className="muted">
+                          {" "}
+                          (most meets {result.totals.p10}–{result.totals.p90} kg)
+                        </span>
+                      </div>
+                    )}
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={chart} margin={{ top: 16, right: 8, left: 0, bottom: 4 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#38383b" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#9a9a9e" }} interval={0} />
+                        <YAxis tick={{ fontSize: 10, fill: "#9a9a9e" }} width={38} tickFormatter={(v: number) => `${v}%`} />
+                        <Tooltip
+                          cursor={false}
+                          contentStyle={{ background: "#1c1c1e", border: "1px solid #38383b", borderRadius: 6, fontSize: 12 }}
+                          labelStyle={{ color: "#f5f5f5" }}
+                          itemStyle={{ color: "#f5f5f5" }}
+                          formatter={(v) => [typeof v === "number" ? `${v.toFixed(1)}%` : "—", "Chance"]}
+                        />
+                        <Bar dataKey="p" fill="#f5821f" fillOpacity={0.55} activeBar={{ fillOpacity: 0.95 }} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="competition-plan">
+                      <table className="metrics-summary-table">
+                        <thead>
+                          <tr>
+                            <th>Lift</th>
+                            <th>Max used</th>
+                            <th>Opener</th>
+                            <th>2nd</th>
+                            <th>3rd</th>
+                            <th>Make rate (1st / 2nd / 3rd)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(["squat", "bench", "deadlift"] as const).map((l) => (
+                            <tr key={l}>
+                              <td style={{ textTransform: "capitalize" }}>
+                                <strong>{l}</strong>
+                              </td>
+                              <td>{maxes[l]}</td>
+                              <td>{result.plan[l][0]}</td>
+                              <td>{result.plan[l][1]}</td>
+                              <td>{result.plan[l][2]}</td>
+                              <td>{model.rates[l].map((r) => `${Math.round(r * 100)}%`).join(" / ")}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="competition-source">
+                        {model.source === "athlete"
+                          ? `Attempt habits from ${model.meets} of ${profile.name.split(" ")[0]}'s meets`
+                          : `Typical ${fedLabel} attempt habits`}{" "}
+                        · {result.sims.toLocaleString()} simulated meets
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {results.length > 0 && (
                 <div className="section">
