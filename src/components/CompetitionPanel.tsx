@@ -187,6 +187,18 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
       ? `${compSex === "M" ? "Male" : "Female"} · ${compBw} kg · ${compEquipment === "Raw" ? "Raw" : "Equipped"}${profile.birth_year ? ` · born ${profile.birth_year}` : ""}${profile.opl_name ? ` · OPL: ${profile.opl_name}` : ""}`
       : null;
 
+  // Switch between estimated and training maxes for the simulation.
+  const simToggle = (
+    <div className="lift-tabs" style={{ marginBottom: 0 }}>
+      <button type="button" className={simBase === "estimate" ? "active" : ""} onClick={() => setSimBase("estimate")}>
+        Estimated maxes
+      </button>
+      <button type="button" className={simBase === "training" ? "active" : ""} onClick={() => setSimBase("training")}>
+        Training maxes
+      </button>
+    </div>
+  );
+
   return (
     <div className="competition">
       <div className="section">
@@ -311,6 +323,19 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
                 })}
               </div>
 
+              {!simulation && field && results.length > 0 && (
+                <div className="section">
+                  <div className="competition-field-head">
+                    <h2 style={{ margin: 0 }}>Chance of placing</h2>
+                    {simToggle}
+                  </div>
+                  <p className="muted" style={{ margin: 0 }}>
+                    {simBase === "training"
+                      ? `Add ${profile.name.split(" ")[0]}'s squat, bench and deadlift 1RMs to use training maxes.`
+                      : "Not enough logged squat, bench and deadlift sets to estimate maxes yet."}
+                  </p>
+                </div>
+              )}
               {simulation && results.length > 0 && (() => {
                 const { result, model, maxes } = simulation;
                 const pct = (n: number) => (result.sims ? (n / result.sims) * 100 : 0);
@@ -328,14 +353,7 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
                   <div className="section">
                     <div className="competition-field-head">
                       <h2 style={{ margin: 0 }}>Chance of placing</h2>
-                      <div className="lift-tabs" style={{ marginBottom: 0 }}>
-                        <button type="button" className={simBase === "estimate" ? "active" : ""} onClick={() => setSimBase("estimate")}>
-                          Estimated maxes
-                        </button>
-                        <button type="button" className={simBase === "training" ? "active" : ""} onClick={() => setSimBase("training")}>
-                          Training maxes
-                        </button>
-                      </div>
+                      {simToggle}
                     </div>
                     <div className="competition-thresholds">
                       {[
