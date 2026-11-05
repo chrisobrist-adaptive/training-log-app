@@ -233,6 +233,19 @@ export default function AthleteDetail() {
       ? (weeks.find((w) => w.block_id === calendarPos.block.id && w.week_number === calendarPos.weekNumber)?.id ?? null)
       : null;
 
+  // Training maxes in effect now: the calendar week's 1RMs (set in the block
+  // builder), else the latest deployed week's, else the profile's.
+  const currentTrainingMaxes = (() => {
+    const deployed = weeks.filter((w) => w.block.status === "deployed" || w.block.status === "completed");
+    const week = (calendarWeekId && oneRmsByWeek[calendarWeekId]) || [...deployed, ...weeks].reverse().map((w) => oneRmsByWeek[w.id]).find(Boolean) || null;
+    const num = (v: unknown) => (v != null && v !== "" ? Number(v) : null);
+    return {
+      squat: num(week?.squat_1rm) ?? num(profile?.squat_1rm),
+      bench: num(week?.bench_1rm) ?? num(profile?.bench_1rm),
+      deadlift: num(week?.deadlift_1rm) ?? num(profile?.deadlift_1rm),
+    };
+  })();
+
   const selectBlock = (blockId: string) => {
     setActiveBlockId(blockId);
     const blockWeeks = weeks.filter((w) => w.block_id === blockId);
@@ -482,7 +495,7 @@ export default function AthleteDetail() {
         />
       )}
 
-      {view === "competition" && <CompetitionPanel profile={profile} onProfileChange={setProfile} />}
+      {view === "competition" && <CompetitionPanel profile={profile} onProfileChange={setProfile} trainingMaxes={currentTrainingMaxes} />}
 
       {view === "rpe" && athleteId && (
         <div className="section">

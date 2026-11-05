@@ -35,7 +35,16 @@ function ordinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-export default function CompetitionPanel({ profile, onProfileChange }: { profile: Profile; onProfileChange: (p: Profile) => void }) {
+export default function CompetitionPanel({
+  profile,
+  onProfileChange,
+  trainingMaxes: tm,
+}: {
+  profile: Profile;
+  onProfileChange: (p: Profile) => void;
+  // Current training maxes (calendar week's block 1RMs, else profile).
+  trainingMaxes: Record<"squat" | "bench" | "deadlift", number | null>;
+}) {
   const [field, setField] = useState<FieldData | null>(null);
   const [fieldError, setFieldError] = useState(false);
   const [sets, setSets] = useState<MacroSet[] | null>(null);
@@ -90,8 +99,8 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
   const weightClass = compSex && compBw ? weightClassFor(federation, compSex, compBw) : null;
 
   const trainingTotal =
-    profile.squat_1rm != null && profile.bench_1rm != null && profile.deadlift_1rm != null
-      ? Number(profile.squat_1rm) + Number(profile.bench_1rm) + Number(profile.deadlift_1rm)
+    tm.squat != null && tm.bench != null && tm.deadlift != null
+      ? tm.squat + tm.bench + tm.deadlift
       : null;
   const estimate = useMemo(() => {
     if (!sets) return null;
@@ -157,11 +166,7 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
   // Probability of placing (see lib/placingSimulation.ts).
   const simulation = useMemo(() => {
     if (!field || !results || !query) return null;
-    const training: Record<LiftKey, number | null> = {
-      squat: profile.squat_1rm != null ? Number(profile.squat_1rm) : null,
-      bench: profile.bench_1rm != null ? Number(profile.bench_1rm) : null,
-      deadlift: profile.deadlift_1rm != null ? Number(profile.deadlift_1rm) : null,
-    };
+    const training: Record<LiftKey, number | null> = tm;
     const pick = (l: LiftKey) => (simBase === "estimate" ? (estimate?.[l] ?? training[l]) : training[l]);
     const maxes = { squat: pick("squat"), bench: pick("bench"), deadlift: pick("deadlift") };
     if (maxes.squat == null || maxes.bench == null || maxes.deadlift == null) return null;
@@ -180,7 +185,7 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
       seed,
     });
     return { result, model, maxes: maxes as Record<LiftKey, number> };
-  }, [field, results, query, simBase, estimate, profile]);
+  }, [field, results, query, simBase, estimate, profile, tm.squat, tm.bench, tm.deadlift]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const detailsSummary =
     compSex && compBw
@@ -486,9 +491,9 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
                                   {profile.name} · {row.label}
                                 </strong>
                               </td>
-                              <td>{row.label === "Training total" ? profile.squat_1rm : estimate?.squat}</td>
-                              <td>{row.label === "Training total" ? profile.bench_1rm : estimate?.bench}</td>
-                              <td>{row.label === "Training total" ? profile.deadlift_1rm : estimate?.deadlift}</td>
+                              <td>{row.label === "Training total" ? tm.squat : estimate?.squat}</td>
+                              <td>{row.label === "Training total" ? tm.bench : estimate?.bench}</td>
+                              <td>{row.label === "Training total" ? tm.deadlift : estimate?.deadlift}</td>
                               <td>
                                 <strong>{row.total}</strong>
                               </td>
