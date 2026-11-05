@@ -27,11 +27,15 @@ const ACCENT = "#f5821f";
 // shades of the accent orange (blended over the card colour) so the legend
 // matches the bars.
 const BUCKETS = [
-  { key: "easy", label: "RPE 6 or less", color: "#4c321e", test: (r: number) => r <= 6 },
-  { key: "moderate", label: "RPE 6.5–7.5", color: "#7e4a1e", test: (r: number) => r > 6 && r < 8 },
-  { key: "hard", label: "RPE 8–8.5", color: "#b8651f", test: (r: number) => r >= 8 && r < 9 },
-  { key: "max", label: "RPE 9+", color: "#f5821f", test: (r: number) => r >= 9 },
+  // `hover` is a brighter shade shown on the bar under the cursor.
+  { key: "easy", label: "RPE 6 or less", color: "#4c321e", hover: "#704a2c", test: (r: number) => r <= 6 },
+  { key: "moderate", label: "RPE 6.5–7.5", color: "#7e4a1e", hover: "#a9662c", test: (r: number) => r > 6 && r < 8 },
+  { key: "hard", label: "RPE 8–8.5", color: "#b8651f", hover: "#e08436", test: (r: number) => r >= 8 && r < 9 },
+  { key: "max", label: "RPE 9+", color: "#f5821f", hover: "#ffa552", test: (r: number) => r >= 9 },
 ] as const;
+
+// Loads shown to the nearest 2.5 kg (what can actually go on the bar).
+const toPlate = (v: number) => Math.round(v / 2.5) * 2.5;
 
 function e1rm(s: MacroSet): number {
   const rir = s.rpe != null ? 10 - s.rpe : 0;
@@ -108,7 +112,7 @@ export default function MacroReview({
       const all = (sets ?? []).filter((s) => s.block_id === b.id && s.lift === l && s.weight > 0 && s.reps > 0 && s.status !== "skipped");
       const comp = all.filter((s) => s.mode === "competition");
       const rated = all.filter((s) => s.rpe != null);
-      const best = comp.length ? Math.max(...comp.map(e1rm)) : null;
+      const best = comp.length ? toPlate(Math.max(...comp.map(e1rm))) : null;
       const tonnagePerWeek = all.length ? all.reduce((sum, s) => sum + s.weight * s.reps, 0) / Math.max(1, b.weeks) : null;
       const heaviest = comp.reduce<MacroSet | null>(
         (h, s) => (!h || s.weight > h.weight || (s.weight === h.weight && s.reps > h.reps) ? s : h),
@@ -125,7 +129,7 @@ export default function MacroReview({
         avgRpe: rated.length ? rated.reduce((sum, s) => sum + s.rpe!, 0) / rated.length : null,
         bestE1rm: best,
         heaviest,
-        workAvg: comp.length ? comp.reduce((sum, s) => sum + s.weight, 0) / comp.length : null,
+        workAvg: comp.length ? toPlate(comp.reduce((sum, s) => sum + s.weight, 0) / comp.length) : null,
         e1rmChange: best != null && prevBest != null ? best - prevBest : null,
         volumeChange:
           tonnagePerWeek != null && prevTonnage != null && prevTonnage > 0
@@ -244,10 +248,25 @@ export default function MacroReview({
             <CartesianGrid strokeDasharray="3 3" stroke="#38383b" vertical={false} />
             <XAxis dataKey="name" tick={AXIS_TICK} />
             <YAxis tick={AXIS_TICK} width={42} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} />
-            <Tooltip contentStyle={TOOLTIP_CONTENT} labelStyle={TOOLTIP_LABEL} formatter={(v) => (typeof v === "number" ? `${v.toFixed(0)}%` : "—")} />
+            <Tooltip
+              cursor={false}
+              contentStyle={TOOLTIP_CONTENT}
+              labelStyle={TOOLTIP_LABEL}
+              itemStyle={{ color: "#f5f5f5" }}
+              formatter={(v) => (typeof v === "number" ? `${v.toFixed(0)}%` : "—")}
+            />
             <Legend wrapperStyle={{ fontSize: 12 }} formatter={(label) => <span style={{ color: "#9a9a9e" }}>{label}</span>} />
             {BUCKETS.map((bk) => (
-              <Bar key={bk.key} dataKey={bk.key} name={bk.label} stackId="rpe" fill={bk.color} maxBarSize={64} isAnimationActive={false} />
+              <Bar
+                key={bk.key}
+                dataKey={bk.key}
+                name={bk.label}
+                stackId="rpe"
+                fill={bk.color}
+                activeBar={{ fill: bk.hover }}
+                maxBarSize={64}
+                isAnimationActive={false}
+              />
             ))}
           </BarChart>
         </ResponsiveContainer>
@@ -301,8 +320,8 @@ export default function MacroReview({
               data={stats.map((s) => ({
                 name: s.name,
                 heaviest: s.heaviest?.weight ?? null,
-                work: s.workAvg == null ? null : Math.round(s.workAvg * 10) / 10,
-                e1rm: s.bestE1rm == null ? null : Math.round(s.bestE1rm * 10) / 10,
+                work: s.workAvg,
+                e1rm: s.bestE1rm,
               }))}
               margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
             >

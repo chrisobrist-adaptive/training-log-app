@@ -132,11 +132,21 @@ export default function TrendChart({ weeks, metrics, lift }: { weeks: WeekWithBl
                 <XAxis dataKey="label" tick={AXIS_TICK_STYLE} interval="preserveStartEnd" angle={-35} textAnchor="end" height={55} />
                 <YAxis tick={AXIS_TICK_STYLE} width={42} />
                 <Tooltip
+                  cursor={false}
                   contentStyle={TOOLTIP_CONTENT_STYLE}
                   labelStyle={TOOLTIP_LABEL_STYLE}
                   formatter={(value) => (typeof value === "number" ? value.toFixed(def.digits) : String(value ?? "—"))}
                 />
-                <Bar dataKey={def.key} name={def.label} fill={def.color} fillOpacity={0.4} stroke={def.color} strokeWidth={1} radius={[3, 3, 0, 0]} />
+                <Bar
+                  dataKey={def.key}
+                  name={def.label}
+                  fill={def.color}
+                  fillOpacity={0.4}
+                  stroke={def.color}
+                  strokeWidth={1}
+                  radius={[3, 3, 0, 0]}
+                  activeBar={{ fillOpacity: 0.8 }}
+                />
               </BarChart>
             ) : (
               <AreaChart data={points} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
