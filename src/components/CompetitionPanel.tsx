@@ -23,7 +23,7 @@ import {
 // Coach-only: where this athlete's totals would place against real
 // competition results (OpenPowerlifting — see lib/competition.ts).
 //   Training total  = current training maxes (block 1RMs, else profile).
-//   Estimated total = best competition-lift e1RMs from the last 12 weeks of
+//   Estimated maxes = best competition-lift e1RMs from the last 12 weeks of
 //                     logged sets (same formula as Macro review), to 2.5 kg.
 //   Projected total = heaviest training lifts carried forward to the next
 //                     meet in the annual plan along their trend, +2% taper.
@@ -175,7 +175,6 @@ export default function CompetitionPanel({
   const fedLabel = FEDERATIONS.find((f) => f.key === federation)!.label;
   const totals: { key: string; label: string; total: number | null }[] = [
     { key: "training", label: "Training total", total: trainingTotal },
-    { key: "estimate", label: "Estimated total", total: estimate?.total ?? null },
     { key: "projected", label: "Projected total", total: projection?.total ?? null },
   ];
 
@@ -198,7 +197,7 @@ export default function CompetitionPanel({
     }
     for (const m of pending) out.push({ kind: "athlete", label: m.label, total: m.total, place: placingFor(list, m.total).place });
     return out;
-  }, [results, allResults, showAll, trainingTotal, estimate?.total, projection?.total]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [results, allResults, showAll, trainingTotal, projection?.total]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Probability of placing (see lib/placingSimulation.ts).
   const simulation = useMemo(() => {
