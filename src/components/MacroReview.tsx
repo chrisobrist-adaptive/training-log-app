@@ -51,6 +51,8 @@ interface BlockStats {
   heaviest: MacroSet | null;
   workAvg: number | null;
   e1rmChange: number | null;
+  // Change in tonnage per week vs the previous block that had any volume.
+  volumeChange: { kg: number; pct: number } | null;
   buckets: Record<string, number>; // share of RPE-rated sets, 0–100
 }
 
@@ -101,11 +103,13 @@ export default function MacroReview({
   // even when it's outside the chosen range).
   const statsFor = (l: Lift): BlockStats[] => {
     let prevBest: number | null = null;
+    let prevTonnage: number | null = null;
     return reviewable.map((b) => {
       const all = (sets ?? []).filter((s) => s.block_id === b.id && s.lift === l && s.weight > 0 && s.reps > 0 && s.status !== "skipped");
       const comp = all.filter((s) => s.mode === "competition");
       const rated = all.filter((s) => s.rpe != null);
       const best = comp.length ? Math.max(...comp.map(e1rm)) : null;
+      const tonnagePerWeek = all.length ? all.reduce((sum, s) => sum + s.weight * s.reps, 0) / Math.max(1, b.weeks) : null;
       const heaviest = comp.reduce<MacroSet | null>(
         (h, s) => (!h || s.weight > h.weight || (s.weight === h.weight && s.reps > h.reps) ? s : h),
         null,
@@ -117,15 +121,20 @@ export default function MacroReview({
         name: b.name,
         weeks: b.weeks,
         hardSets: all.filter((s) => (s.rpe ?? 0) >= 8).length,
-        tonnagePerWeek: all.length ? all.reduce((sum, s) => sum + s.weight * s.reps, 0) / Math.max(1, b.weeks) : null,
+        tonnagePerWeek,
         avgRpe: rated.length ? rated.reduce((sum, s) => sum + s.rpe!, 0) / rated.length : null,
         bestE1rm: best,
         heaviest,
         workAvg: comp.length ? comp.reduce((sum, s) => sum + s.weight, 0) / comp.length : null,
         e1rmChange: best != null && prevBest != null ? best - prevBest : null,
+        volumeChange:
+          tonnagePerWeek != null && prevTonnage != null && prevTonnage > 0
+            ? { kg: tonnagePerWeek - prevTonnage, pct: ((tonnagePerWeek - prevTonnage) / prevTonnage) * 100 }
+            : null,
         buckets,
       };
       if (best != null) prevBest = best;
+      if (tonnagePerWeek != null) prevTonnage = tonnagePerWeek;
       return stats;
     });
   };
@@ -254,6 +263,7 @@ export default function MacroReview({
                   <th>Block</th>
                   <th>Hard sets (RPE 8+)</th>
                   <th>Tonnage / week</th>
+                  <th>Volume vs block before</th>
                   <th>Avg RPE</th>
                   <th>e1RM vs block before</th>
                 </tr>
@@ -266,6 +276,16 @@ export default function MacroReview({
                     </td>
                     <td>{s.hardSets}</td>
                     <td>{s.tonnagePerWeek == null ? "—" : Math.round(s.tonnagePerWeek).toLocaleString()}</td>
+                    <td>
+                      {s.volumeChange ? (
+                        <span className={s.volumeChange.kg >= 0 ? "macro-up" : "macro-down"}>
+                          {s.volumeChange.kg >= 0 ? "▲" : "▼"} {Math.abs(Math.round(s.volumeChange.kg)).toLocaleString()} kg ({s.volumeChange.pct >= 0 ? "+" : "−"}
+                          {Math.abs(s.volumeChange.pct).toFixed(1)}%)
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td>{kg(s.avgRpe)}</td>
                     <td>{delta(s.e1rmChange) ?? "—"}</td>
                   </tr>
