@@ -25,8 +25,8 @@ import {
 //   Training total  = current training maxes (block 1RMs, else profile).
 //   Estimated total = best competition-lift e1RMs from the last 12 weeks of
 //                     logged sets (same formula as Macro review), to 2.5 kg.
-//   Projected total = estimated maxes carried forward to the next meet in
-//                     the annual plan along their recent trend.
+//   Projected total = heaviest training lifts carried forward to the next
+//                     meet in the annual plan along their trend, +2% taper.
 
 const ESTIMATE_WEEKS = 12;
 const toPlate = (v: number) => Math.round(v / 2.5) * 2.5;
@@ -130,24 +130,27 @@ export default function CompetitionPanel({
     return { ...lifts, total };
   }, [sets]);
 
-  // Estimated maxes carried forward to the next meet (see lib/maxProjection.ts).
+  // Heaviest training lifts carried forward to the next meet (see lib/maxProjection.ts).
   const projection = useMemo(() => {
     if (!sets || !nextMeet) return null;
     const meet = new Date(nextMeet.meet_date + "T00:00:00");
     const weeksOut = Math.max(0, (meet.getTime() - Date.now()) / (7 * 86400000));
+    const since = new Date(Date.now() - ESTIMATE_WEEKS * 7 * 86400000).toISOString();
     const lift = (l: LiftKey) => {
-      const current = estimate?.[l] ?? tm[l];
-      if (current == null) return null;
       const points = sets
-        .filter((s) => s.lift === l && s.mode === "competition" && s.weight > 0 && s.reps > 0 && s.status !== "skipped")
-        .map((s) => ({ date: s.created_at, e1rm: e1rm(s) }));
+        .filter((s) => s.lift === l && s.mode === "competition" && s.weight > 0 && s.reps > 0 && s.status !== "skipped" && s.status !== "pending")
+        .map((s) => ({ date: s.created_at, weight: s.weight }));
+      // Heaviest weight lifted in the last 12 weeks (else the training max).
+      const recent = points.filter((p) => p.date >= since).map((p) => p.weight);
+      const current = recent.length ? Math.max(...recent) : tm[l];
+      if (current == null) return null;
       return projectLift(current, weeklySlope(points), weeksOut);
     };
     const lifts = { squat: lift("squat"), bench: lift("bench"), deadlift: lift("deadlift") };
     const total =
       lifts.squat && lifts.bench && lifts.deadlift ? lifts.squat.projected + lifts.bench.projected + lifts.deadlift.projected : null;
     return { lifts, total, weeksOut: Math.round(weeksOut), meet: nextMeet };
-  }, [sets, nextMeet, estimate, tm.squat, tm.bench, tm.deadlift]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sets, nextMeet, tm.squat, tm.bench, tm.deadlift]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const query = useMemo(
     (): FieldQuery | null =>
