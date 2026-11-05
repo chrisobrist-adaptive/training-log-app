@@ -127,3 +127,59 @@ export async function fetchRpeChartLogs(athleteId: string): Promise<RpeChartLog[
   // numeric columns can arrive as strings — normalise.
   return (data as RpeChartLog[]).map((r) => ({ ...r, rpe: Number(r.rpe), pct: Number(r.pct) }));
 }
+
+// Every logged set (with weight and reps) for one athlete, tagged with its
+// lift, competition/equipped mode and block — the raw material for the
+// Macro review tab. Fetched in pages of 1000 (the API's row cap per request).
+export interface MacroSet {
+  weight: number;
+  reps: number;
+  rpe: number | null;
+  status: string | null;
+  lift: string | null;
+  mode: string | null;
+  block_id: string;
+}
+
+export async function fetchMacroSets(athleteId: string): Promise<MacroSet[]> {
+  type Raw = {
+    weight: number;
+    reps: number;
+    rpe: number | null;
+    status: string | null;
+    exercises: {
+      exercise_inventory: { lift: string | null; rpe_chart_mode: string | null } | null;
+      training_days: { weeks: { block_id: string } };
+    };
+  };
+  const out: MacroSet[] = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    // The generated types don't include table relationships, so the nested
+    // select/filter is untyped; rows are mapped by hand below.
+    const { data, error } = await supabase
+      .from("logged_sets")
+      .select(
+        "id, weight, reps, rpe, status, exercises!inner(exercise_inventory(lift, rpe_chart_mode), training_days!inner(weeks!inner(block_id, blocks!inner(athlete_id))))",
+      )
+      .eq("exercises.training_days.weeks.blocks.athlete_id" as "id", athleteId)
+      .not("weight", "is", null)
+      .not("reps", "is", null)
+      .order("id")
+      .range(from, from + pageSize - 1);
+    if (error || !data) break;
+    for (const r of data as unknown as Raw[]) {
+      out.push({
+        weight: Number(r.weight),
+        reps: Number(r.reps),
+        rpe: r.rpe == null ? null : Number(r.rpe),
+        status: r.status,
+        lift: r.exercises.exercise_inventory?.lift ?? null,
+        mode: r.exercises.exercise_inventory?.rpe_chart_mode ?? null,
+        block_id: r.exercises.training_days.weeks.block_id,
+      });
+    }
+    if (data.length < pageSize) break;
+  }
+  return out;
+}

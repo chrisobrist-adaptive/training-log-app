@@ -10,6 +10,7 @@ import WeekSummaryTable, { LIFT_TABS } from "../../components/WeekSummaryTable";
 import AthleteLayout from "../../components/AthleteLayout";
 import VelocityChart from "../../components/VelocityChart";
 import RpeChart from "../../components/RpeChart";
+import MacroReview from "../../components/MacroReview";
 import { blockStartMonday, calendarPosition, todayWeekday, type CalendarPosition } from "../../lib/blockCalendar";
 import TrendChart from "../../components/TrendChart";
 import { plannedSetSummary, loggedSetsForExercise } from "../../lib/sessionPlayerHelpers";
@@ -45,7 +46,7 @@ export default function AthleteDetail() {
   // /rpe-chart), all on this one component so switching tabs keeps the
   // loaded data instead of refetching.
   const { athleteId, tab } = useParams<{ athleteId: string; tab?: string }>();
-  const view = tab === "graphs" ? "graphs" : tab === "rpe-chart" ? "rpe" : "overview";
+  const view = tab === "graphs" ? "graphs" : tab === "rpe-chart" ? "rpe" : tab === "macro-review" ? "macro" : "overview";
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -470,6 +471,14 @@ export default function AthleteDetail() {
           <h2>Velocity</h2>
           <VelocityChart athleteId={athleteId} />
         </div>
+      )}
+
+      {view === "macro" && athleteId && (
+        <MacroReview
+          athleteId={athleteId}
+          weeks={weeks}
+          oneRms={{ squat_1rm: profile.squat_1rm, bench_1rm: profile.bench_1rm, deadlift_1rm: profile.deadlift_1rm }}
+        />
       )}
 
       {view === "rpe" && athleteId && (

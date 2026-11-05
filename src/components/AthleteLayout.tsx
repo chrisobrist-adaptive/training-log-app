@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 // each area has its own spot instead of one long page. On narrow screens
 // the sidebar becomes a row of tabs above the content.
 
-export type AthleteTab = "overview" | "graphs" | "rpe" | "plan";
+export type AthleteTab = "overview" | "graphs" | "rpe" | "macro" | "plan";
 
 const TABS: { key: AthleteTab; label: string; path: string; icon: ReactNode }[] = [
   {
@@ -40,6 +40,17 @@ const TABS: { key: AthleteTab; label: string; path: string; icon: ReactNode }[] 
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3.5" y="3.5" width="17" height="17" rx="2" />
         <path d="M3.5 9.5h17M3.5 15h17M9.5 3.5v17M15 3.5v17" />
+      </svg>
+    ),
+  },
+  {
+    key: "macro",
+    label: "Macro review",
+    path: "/macro-review",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 19h16" />
+        <path d="M6 16V11M10 16V7M14 16v-6M18 16V5" />
       </svg>
     ),
   },
