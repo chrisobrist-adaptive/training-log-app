@@ -133,7 +133,10 @@ export function buildField(data: FieldData, q: FieldQuery): FieldResult[] {
   const best = new Map<string, FieldResult>();
   for (const r of data.results) {
     if (r.federation !== q.federation || r.sex !== q.sex || r.equipment !== q.equipment) continue;
-    if (r.weightClass !== q.weightClass || r.date < sinceIso || !(r.total > 0)) continue;
+    // Some meets record no weight class (World Games, Sheffield and other
+    // points-based invitationals) — place those lifters by their bodyweight.
+    const weightClass = r.weightClass ?? (r.bodyweight != null ? weightClassFor(q.federation, q.sex, r.bodyweight) : null);
+    if (weightClass !== q.weightClass || r.date < sinceIso || !(r.total > 0)) continue;
     if (q.testedOnly && !r.tested) continue;
     if (q.ageGroup !== "open" && (r.age == null || Math.floor(r.age) < group.min || Math.floor(r.age) > group.max)) continue;
     const prev = best.get(r.name);
