@@ -123,14 +123,14 @@ export interface FieldQuery {
   testedOnly: boolean;
 }
 
-// The field for a query: every matching lifter once, at their best total in
-// the period (so someone who competed three times counts once), best first.
-export function buildField(data: FieldData, q: FieldQuery): FieldResult[] {
+// Every result matching a query (a lifter can appear once per meet), best
+// total first.
+export function matchingResults(data: FieldData, q: FieldQuery): FieldResult[] {
   const since = new Date();
   since.setMonth(since.getMonth() - q.months);
   const sinceIso = since.toISOString().slice(0, 10);
   const group = AGE_GROUPS.find((g) => g.key === q.ageGroup)!;
-  const best = new Map<string, FieldResult>();
+  const out: FieldResult[] = [];
   for (const r of data.results) {
     if (r.federation !== q.federation || r.sex !== q.sex || r.equipment !== q.equipment) continue;
     // Some meets record no weight class (World Games, Sheffield and other
@@ -139,6 +139,16 @@ export function buildField(data: FieldData, q: FieldQuery): FieldResult[] {
     if (weightClass !== q.weightClass || r.date < sinceIso || !(r.total > 0)) continue;
     if (q.testedOnly && !r.tested) continue;
     if (q.ageGroup !== "open" && (r.age == null || Math.floor(r.age) < group.min || Math.floor(r.age) > group.max)) continue;
+    out.push(r);
+  }
+  return out.sort((a, b) => b.total - a.total);
+}
+
+// The field for a query: every matching lifter once, at their best total in
+// the period (so someone who competed three times counts once), best first.
+export function buildField(data: FieldData, q: FieldQuery): FieldResult[] {
+  const best = new Map<string, FieldResult>();
+  for (const r of matchingResults(data, q)) {
     const prev = best.get(r.name);
     if (!prev || r.total > prev.total) best.set(r.name, r);
   }

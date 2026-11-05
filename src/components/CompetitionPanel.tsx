@@ -7,10 +7,12 @@ import {
   FEDERATIONS,
   buildField,
   loadField,
+  matchingResults,
   placingFor,
   weightClassFor,
   type AgeGroup,
   type FieldData,
+  type FieldQuery,
   type FieldResult,
   type Federation,
 } from "../lib/competition";
@@ -41,6 +43,8 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
   const [months, setMonths] = useState(12);
   const [ageGroup, setAgeGroup] = useState<AgeGroup>("open");
   const [testedOnly, setTestedOnly] = useState(true);
+  // Field table: one row per lifter (best total) or every meet result.
+  const [showAll, setShowAll] = useState(false);
 
   // Competition details form (saved to the athlete's profile).
   const [sex, setSex] = useState(profile.comp_sex ?? "");
@@ -97,18 +101,25 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
     return { ...lifts, total };
   }, [sets]);
 
-  const results = useMemo(() => {
-    if (!field || !compSex || !weightClass) return null;
-    return buildField(field, {
-      federation,
-      sex: compSex,
-      equipment: compEquipment,
-      weightClass,
-      months,
-      ageGroup,
-      testedOnly: federation === "AusPL" ? testedOnly : false,
-    });
-  }, [field, federation, compSex, compEquipment, weightClass, months, ageGroup, testedOnly]);
+  const query = useMemo(
+    (): FieldQuery | null =>
+      compSex && weightClass
+        ? {
+            federation,
+            sex: compSex,
+            equipment: compEquipment as "Raw" | "Single-ply",
+            weightClass,
+            months,
+            ageGroup,
+            testedOnly: federation === "AusPL" ? testedOnly : false,
+          }
+        : null,
+    [federation, compSex, compEquipment, weightClass, months, ageGroup, testedOnly],
+  );
+  // `results` (each lifter once) drives the placings; `allResults` is only
+  // for the field table's "Show every result" view.
+  const results = useMemo(() => (field && query ? buildField(field, query) : null), [field, query]);
+  const allResults = useMemo(() => (field && query && showAll ? matchingResults(field, query) : null), [field, query, showAll]);
 
   const fedLabel = FEDERATIONS.find((f) => f.key === federation)!.label;
   const totals: { key: string; label: string; total: number | null }[] = [
@@ -118,22 +129,24 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
 
   // The field list with the athlete's totals slotted in where they'd land.
   const tableRows = useMemo(() => {
-    if (!results) return [];
+    const list = showAll ? allResults : results;
+    if (!list) return [];
     type Row = { kind: "field"; r: FieldResult; place: number } | { kind: "athlete"; label: string; total: number; place: number };
     const markers = totals.filter((t) => t.total != null).map((t) => ({ label: t.label, total: t.total! }));
     const out: Row[] = [];
     let place = 1;
     const pending = [...markers].sort((a, b) => b.total - a.total);
-    for (const r of results) {
+    // The "#" column is the position in whichever list is showing.
+    for (const r of list) {
       while (pending.length && pending[0].total >= r.total) {
         const m = pending.shift()!;
-        out.push({ kind: "athlete", label: m.label, total: m.total, place: placingFor(results, m.total).place });
+        out.push({ kind: "athlete", label: m.label, total: m.total, place: placingFor(list, m.total).place });
       }
       out.push({ kind: "field", r, place: place++ });
     }
-    for (const m of pending) out.push({ kind: "athlete", label: m.label, total: m.total, place: placingFor(results, m.total).place });
+    for (const m of pending) out.push({ kind: "athlete", label: m.label, total: m.total, place: placingFor(list, m.total).place });
     return out;
-  }, [results, trainingTotal, estimate?.total]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [results, allResults, showAll, trainingTotal, estimate?.total]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const detailsSummary =
     compSex && compBw
@@ -281,9 +294,15 @@ export default function CompetitionPanel({ profile, onProfileChange }: { profile
               )}
 
               <div className="section">
-                <h2>
-                  Field · {fedLabel} {weightClass} kg
-                </h2>
+                <div className="competition-field-head">
+                  <h2 style={{ margin: 0 }}>
+                    Field · {fedLabel} {weightClass} kg
+                  </h2>
+                  <label className="competition-check">
+                    <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+                    Show every result
+                  </label>
+                </div>
                 {results.length === 0 ? (
                   <p className="muted">No results for this class and period.</p>
                 ) : (
