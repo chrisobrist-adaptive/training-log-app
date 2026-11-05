@@ -283,34 +283,49 @@ export type Database = {
       profiles: {
         Row: {
           bench_1rm: number | null
+          birth_year: number | null
+          comp_bodyweight: number | null
+          comp_equipment: string | null
+          comp_sex: string | null
           coach_id: string | null
           created_at: string
           deadlift_1rm: number | null
           email: string
           id: string
           name: string
+          opl_name: string | null
           role: string
           squat_1rm: number | null
         }
         Insert: {
           bench_1rm?: number | null
+          birth_year?: number | null
+          comp_bodyweight?: number | null
+          comp_equipment?: string | null
+          comp_sex?: string | null
           coach_id?: string | null
           created_at?: string
           deadlift_1rm?: number | null
           email: string
           id: string
           name: string
+          opl_name: string | null
           role: string
           squat_1rm?: number | null
         }
         Update: {
           bench_1rm?: number | null
+          birth_year?: number | null
+          comp_bodyweight?: number | null
+          comp_equipment?: string | null
+          comp_sex?: string | null
           coach_id?: string | null
           created_at?: string
           deadlift_1rm?: number | null
           email?: string
           id?: string
           name?: string
+          opl_name?: string | null
           role?: string
           squat_1rm?: number | null
         }

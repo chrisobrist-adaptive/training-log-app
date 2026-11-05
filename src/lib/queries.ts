@@ -139,6 +139,8 @@ export interface MacroSet {
   lift: string | null;
   mode: string | null;
   block_id: string;
+  // When the set was logged (ISO timestamp).
+  created_at: string;
 }
 
 export async function fetchMacroSets(athleteId: string): Promise<MacroSet[]> {
@@ -147,6 +149,7 @@ export async function fetchMacroSets(athleteId: string): Promise<MacroSet[]> {
     reps: number;
     rpe: number | null;
     status: string | null;
+    created_at: string;
     exercises: {
       exercise_inventory: { lift: string | null; rpe_chart_mode: string | null } | null;
       training_days: { weeks: { block_id: string } };
@@ -160,7 +163,7 @@ export async function fetchMacroSets(athleteId: string): Promise<MacroSet[]> {
     const { data, error } = await supabase
       .from("logged_sets")
       .select(
-        "id, weight, reps, rpe, status, exercises!inner(exercise_inventory(lift, rpe_chart_mode), training_days!inner(weeks!inner(block_id, blocks!inner(athlete_id))))",
+        "id, weight, reps, rpe, status, created_at, exercises!inner(exercise_inventory(lift, rpe_chart_mode), training_days!inner(weeks!inner(block_id, blocks!inner(athlete_id))))",
       )
       .eq("exercises.training_days.weeks.blocks.athlete_id" as "id", athleteId)
       .not("weight", "is", null)
@@ -177,6 +180,7 @@ export async function fetchMacroSets(athleteId: string): Promise<MacroSet[]> {
         lift: r.exercises.exercise_inventory?.lift ?? null,
         mode: r.exercises.exercise_inventory?.rpe_chart_mode ?? null,
         block_id: r.exercises.training_days.weeks.block_id,
+        created_at: r.created_at,
       });
     }
     if (data.length < pageSize) break;
