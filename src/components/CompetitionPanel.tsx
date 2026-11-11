@@ -155,9 +155,10 @@ export default function CompetitionPanel({
             months,
             ageGroup,
             testedOnly: federation === "AusPL" ? testedOnly : false,
+            targetDate: nextMeet?.meet_date ?? new Date().toLocaleDateString("en-CA"),
           }
         : null,
-    [federation, compSex, compEquipment, weightClass, months, ageGroup, testedOnly],
+    [federation, compSex, compEquipment, weightClass, months, ageGroup, testedOnly, nextMeet],
   );
   // `results` (each lifter once) drives the placings; `allResults` is only
   // for the field table's "Show every result" view.

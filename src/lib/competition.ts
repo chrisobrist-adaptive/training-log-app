@@ -109,7 +109,9 @@ export function weightClassFor(federation: Federation, sex: "M" | "F", bodyweigh
   return classes[classes.length - 1];
 }
 
-// IPF-style age groups (age = competition year − birth year).
+// IPF-style age groups. APA and IPF go by birth year (age = competition year
+// − birth year, so a junior moves up in the year they turn 24); APL by actual
+// age on the day.
 export type AgeGroup = "open" | "subjunior" | "junior" | "m1" | "m2" | "m3" | "m4";
 export const AGE_GROUPS: { key: AgeGroup; label: string; min: number; max: number }[] = [
   { key: "open", label: "Open (all ages)", min: 0, max: 200 },
@@ -129,6 +131,66 @@ export interface FieldQuery {
   months: number;
   ageGroup: AgeGroup;
   testedOnly: boolean;
+  // When the athlete competes (next meet in their annual plan, else today):
+  // lifters are filtered by the age group they'd be in then.
+  targetDate: string;
+}
+
+const YEAR_MS = 365.2425 * 86400000;
+
+// Each lifter's possible birth dates, narrowed across all of their results.
+// OpenPowerlifting's Age is either exact (on the meet day) or x.5 when only
+// the birth year is known (x.5 = year − birth year − 0.5).
+const birthCache = new WeakMap<FieldData, Map<string, [number, number]>>();
+function birthRanges(data: FieldData): Map<string, [number, number]> {
+  let map = birthCache.get(data);
+  if (map) return map;
+  map = new Map();
+  for (const r of data.results) {
+    const range = birthRange(r);
+    if (!range) continue;
+    const prev = map.get(r.name);
+    if (!prev) map.set(r.name, range);
+    else {
+      const lo = Math.max(prev[0], range[0]);
+      const hi = Math.min(prev[1], range[1]);
+      // Clash (two lifters with one name): keep the earlier range.
+      if (lo <= hi) map.set(r.name, [lo, hi]);
+    }
+  }
+  birthCache.set(data, map);
+  return map;
+}
+function birthRange(r: FieldResult): [number, number] | null {
+  if (r.age == null) return null;
+  const meet = Date.parse(r.date + "T00:00:00Z");
+  if (r.age % 1 !== 0) {
+    const year = new Date(meet).getUTCFullYear() - (r.age + 0.5);
+    return [Date.UTC(year, 0, 1), Date.UTC(year, 11, 31)];
+  }
+  const shift = (years: number) => {
+    const d = new Date(meet);
+    d.setUTCFullYear(d.getUTCFullYear() - years);
+    return d.getTime();
+  };
+  return [shift(r.age + 1) + 86400000, shift(r.age)];
+}
+
+// Could this lifter be in the age group at the target date? (Lifters whose
+// birthday makes it a coin flip are kept.)
+function inAgeGroup(range: [number, number], federation: Federation, group: { min: number; max: number }, targetDate: string): boolean {
+  const target = Date.parse(targetDate + "T00:00:00Z");
+  let youngest: number;
+  let oldest: number;
+  if (federation === "AusPL") {
+    youngest = Math.floor((target - range[1]) / YEAR_MS);
+    oldest = Math.floor((target - range[0]) / YEAR_MS);
+  } else {
+    const year = new Date(target).getUTCFullYear();
+    youngest = year - new Date(range[1]).getUTCFullYear();
+    oldest = year - new Date(range[0]).getUTCFullYear();
+  }
+  return oldest >= group.min && youngest <= group.max;
 }
 
 // Every result matching a query (a lifter can appear once per meet), best
@@ -138,6 +200,7 @@ export function matchingResults(data: FieldData, q: FieldQuery): FieldResult[] {
   since.setMonth(since.getMonth() - q.months);
   const sinceIso = since.toISOString().slice(0, 10);
   const group = AGE_GROUPS.find((g) => g.key === q.ageGroup)!;
+  const births = birthRanges(data);
   const out: FieldResult[] = [];
   for (const r of data.results) {
     if (r.federation !== q.federation || r.sex !== q.sex || r.equipment !== q.equipment) continue;
@@ -146,7 +209,10 @@ export function matchingResults(data: FieldData, q: FieldQuery): FieldResult[] {
     const weightClass = r.weightClass ?? (r.bodyweight != null ? weightClassFor(q.federation, q.sex, r.bodyweight) : null);
     if (weightClass !== q.weightClass || r.date < sinceIso || !(r.total > 0)) continue;
     if (q.testedOnly && !r.tested) continue;
-    if (q.ageGroup !== "open" && (r.age == null || Math.floor(r.age) < group.min || Math.floor(r.age) > group.max)) continue;
+    if (q.ageGroup !== "open") {
+      const range = births.get(r.name) ?? birthRange(r);
+      if (!range || !inAgeGroup(range, q.federation, group, q.targetDate)) continue;
+    }
     out.push(r);
   }
   return out.sort((a, b) => b.total - a.total);
