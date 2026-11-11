@@ -22,7 +22,8 @@ import {
 
 // Coach-only: where this athlete's totals would place against real
 // competition results (OpenPowerlifting — see lib/competition.ts).
-//   Training total  = current training maxes (block 1RMs, else profile).
+//   Training total  = heaviest completed competition lifts, last 12 weeks
+//                     (training maxes only for a lift with nothing logged).
 //   Projected total = heaviest training lifts carried forward to the next
 //                     meet in the annual plan along their trend, +2% taper.
 
@@ -108,9 +109,20 @@ export default function CompetitionPanel({
   const compEquipment = profile.comp_equipment === "Single-ply" ? "Single-ply" : "Raw";
   const weightClass = compSex && compBw ? weightClassFor(federation, compSex, compBw) : null;
 
+  // Heaviest weight actually lifted per competition lift (last 12 weeks).
+  const heaviest = useMemo(() => {
+    const since = new Date(Date.now() - ESTIMATE_WEEKS * 7 * 86400000).toISOString();
+    const lift = (l: LiftKey): number | null => {
+      const recent = (sets ?? [])
+        .filter((s) => s.lift === l && s.mode === "competition" && s.weight > 0 && s.reps > 0 && s.status !== "skipped" && s.status !== "pending" && s.created_at >= since)
+        .map((s) => s.weight);
+      return recent.length ? Math.max(...recent) : tm[l];
+    };
+    return { squat: lift("squat"), bench: lift("bench"), deadlift: lift("deadlift") };
+  }, [sets, tm.squat, tm.bench, tm.deadlift]); // eslint-disable-line react-hooks/exhaustive-deps
   const trainingTotal =
-    tm.squat != null && tm.bench != null && tm.deadlift != null
-      ? tm.squat + tm.bench + tm.deadlift
+    heaviest.squat != null && heaviest.bench != null && heaviest.deadlift != null
+      ? heaviest.squat + heaviest.bench + heaviest.deadlift
       : null;
 
   // Heaviest training lifts carried forward to the next meet (see lib/maxProjection.ts).
@@ -118,14 +130,11 @@ export default function CompetitionPanel({
     if (!sets || !nextMeet) return null;
     const meet = new Date(nextMeet.meet_date + "T00:00:00");
     const weeksOut = Math.max(0, (meet.getTime() - Date.now()) / (7 * 86400000));
-    const since = new Date(Date.now() - ESTIMATE_WEEKS * 7 * 86400000).toISOString();
     const lift = (l: LiftKey) => {
       const points = sets
         .filter((s) => s.lift === l && s.mode === "competition" && s.weight > 0 && s.reps > 0 && s.status !== "skipped" && s.status !== "pending")
         .map((s) => ({ date: s.created_at, weight: s.weight }));
-      // Heaviest weight lifted in the last 12 weeks (else the training max).
-      const recent = points.filter((p) => p.date >= since).map((p) => p.weight);
-      const current = recent.length ? Math.max(...recent) : tm[l];
+      const current = heaviest[l];
       if (current == null) return null;
       return projectLift(current, weeklySlope(points), weeksOut);
     };
@@ -133,7 +142,7 @@ export default function CompetitionPanel({
     const total =
       lifts.squat && lifts.bench && lifts.deadlift ? lifts.squat.projected + lifts.bench.projected + lifts.deadlift.projected : null;
     return { lifts, total, weeksOut: Math.round(weeksOut), meet: nextMeet };
-  }, [sets, nextMeet, tm.squat, tm.bench, tm.deadlift]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sets, nextMeet, heaviest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const query = useMemo(
     (): FieldQuery | null =>
@@ -185,7 +194,7 @@ export default function CompetitionPanel({
   // Probability of placing (see lib/placingSimulation.ts).
   const simulation = useMemo(() => {
     if (!field || !results || !query) return null;
-    const training: Record<LiftKey, number | null> = tm;
+    const training: Record<LiftKey, number | null> = heaviest;
     const pick = (l: LiftKey) =>
       simBase === "projected" ? (projection?.lifts[l]?.projected ?? null) : training[l];
     const maxes = { squat: pick("squat"), bench: pick("bench"), deadlift: pick("deadlift") };
@@ -205,21 +214,21 @@ export default function CompetitionPanel({
       seed,
     });
     return { result, model, maxes: maxes as Record<LiftKey, number> };
-  }, [field, results, query, simBase, projection, profile, tm.squat, tm.bench, tm.deadlift]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [field, results, query, simBase, projection, profile, heaviest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const detailsSummary =
     compSex && compBw
       ? `${compSex === "M" ? "Male" : "Female"} · ${compBw} kg · ${compEquipment === "Raw" ? "Raw" : "Equipped"}${profile.birth_year ? ` · born ${profile.birth_year}` : ""}${profile.opl_name ? ` · OPL: ${profile.opl_name}` : ""}`
       : null;
 
-  // Switch between projected and training maxes for the simulation.
+  // Switch between projected and heaviest training lifts for the simulation.
   const simToggle = (
     <div className="lift-tabs" style={{ marginBottom: 0 }}>
       <button type="button" className={simBase === "projected" ? "active" : ""} onClick={() => setSimBase("projected")}>
         Projected maxes
       </button>
       <button type="button" className={simBase === "training" ? "active" : ""} onClick={() => setSimBase("training")}>
-        Training maxes
+        Heaviest lifts
       </button>
     </div>
   );
@@ -340,7 +349,7 @@ export default function CompetitionPanel({
                         {t.total != null
                           ? `${t.total} kg`
                           : t.key === "training"
-                            ? "No 1RMs set"
+                            ? "No recent lifts logged"
                             : t.key === "projected" && nextMeet === null
                               ? "No meet in annual plan"
                               : "Not enough recent logs"}
@@ -367,7 +376,7 @@ export default function CompetitionPanel({
                   </div>
                   <p className="muted" style={{ margin: 0 }}>
                     {simBase === "training"
-                      ? `Add ${profile.name.split(" ")[0]}'s squat, bench and deadlift 1RMs to use training maxes.`
+                      ? "Not enough logged squat, bench and deadlift sets yet."
                       : nextMeet === null
                         ? `Add a meet to ${profile.name.split(" ")[0]}'s annual plan to project maxes.`
                         : "Not enough logged squat, bench and deadlift sets to project maxes yet."}
@@ -531,9 +540,9 @@ export default function CompetitionPanel({
                                   {profile.name} · {row.label}
                                 </strong>
                               </td>
-                              <td>{row.label === "Training total" ? tm.squat : projection?.lifts.squat?.projected}</td>
-                              <td>{row.label === "Training total" ? tm.bench : projection?.lifts.bench?.projected}</td>
-                              <td>{row.label === "Training total" ? tm.deadlift : projection?.lifts.deadlift?.projected}</td>
+                              <td>{row.label === "Training total" ? heaviest.squat : projection?.lifts.squat?.projected}</td>
+                              <td>{row.label === "Training total" ? heaviest.bench : projection?.lifts.bench?.projected}</td>
+                              <td>{row.label === "Training total" ? heaviest.deadlift : projection?.lifts.deadlift?.projected}</td>
                               <td>
                                 <strong>{row.total}</strong>
                               </td>
