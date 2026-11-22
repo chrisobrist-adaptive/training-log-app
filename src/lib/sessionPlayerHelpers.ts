@@ -21,15 +21,24 @@
 //   as typed in. Don't "fix" this to match `setSummaryText` — it's
 //   deliberately the bare prescription, not the computed one.
 
-import type { Exercise, LoggedSet } from "./types";
-import { prescribedWeight, backdownWeight, type OneRms } from "./exerciseDefaults";
+import type { AscendingSetEntry, Exercise, LoggedSet } from "./types";
+import { ascendingWeight, prescribedWeight, backdownWeight, type OneRms } from "./exerciseDefaults";
+
+// One ascending set as text, e.g. "180×3 @8" or (unresolved) "75%×3 @8".
+// Each set's RPE falls back to the exercise's RPE.
+function ascendingText(exercise: Exercise, s: AscendingSetEntry, oneRm: OneRms | undefined, sep = "×"): string {
+  const w = oneRm !== undefined ? ascendingWeight(exercise, s, oneRm) : s.weight;
+  const load = w != null ? `${w}` : s.pct != null ? `${s.pct}%` : "—";
+  const rpe = s.rpe ?? exercise.prescribed_rpe;
+  return `${load}${s.reps ? `${sep}${s.reps}` : ""}${rpe != null ? ` @${rpe}` : ""}`;
+}
 
 // SessionPlayer's station-card summary line ("3 sets x 5 @ 80% RPE 8") —
 // the raw prescription as typed in, with no weight resolved.
 export function prescribedSummary(exercise: Exercise): string {
   const ascending = exercise.ascending_sets && exercise.ascending_sets.length > 0 ? exercise.ascending_sets : null;
   if (ascending) {
-    return ascending.map((s) => `${s.weight ?? "—"}${s.reps ? ` x ${s.reps}` : ""}`).join(", ");
+    return ascending.map((s) => ascendingText(exercise, s, undefined, " x ")).join(", ");
   }
   return [
     exercise.prescribed_sets ? `${exercise.prescribed_sets} set${exercise.prescribed_sets === 1 ? "" : "s"}` : null,
@@ -80,7 +89,7 @@ export function allSetsLogged(exercise: Exercise, loggedSets: LoggedSet[]): bool
 // of bare concatenation.
 export function setSummaryText(exercise: Exercise, oneRm: OneRms): string {
   if (exercise.ascending_sets && exercise.ascending_sets.length > 0) {
-    return exercise.ascending_sets.map((s) => `${s.weight ?? "—"}${s.reps ? `×${s.reps}` : ""}`).join(", ");
+    return exercise.ascending_sets.map((s) => ascendingText(exercise, s, oneRm)).join(", ");
   }
   const weight = prescribedWeight(exercise, oneRm);
   const reps = exercise.prescribed_reps || null;
@@ -125,7 +134,7 @@ export function formatRestTime(totalSeconds: number): string {
 // simpler function from setSummaryText above, not a shared caller.
 export function plannedSetSummary(exercise: Exercise, oneRm: OneRms): string {
   if (exercise.ascending_sets && exercise.ascending_sets.length > 0) {
-    return exercise.ascending_sets.map((s) => `${s.weight ?? "—"}${s.reps ? `×${s.reps}` : ""}`).join(", ");
+    return exercise.ascending_sets.map((s) => ascendingText(exercise, s, oneRm)).join(", ");
   }
   const weight = prescribedWeight(exercise, oneRm);
   const reps = exercise.prescribed_reps || null;

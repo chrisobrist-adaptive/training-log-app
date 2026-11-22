@@ -49,6 +49,11 @@ export function prescribedWeight(exercise: any, oneRms: OneRms): number | null {
   );
 }
 
+// One ascending set's weight: its fixed weight, else its % of the training max.
+export function ascendingWeight(exercise: any, entry: { weight: number | null; pct?: number | null }, oneRms: OneRms): number | null {
+  return resolveLoad({ load_fixed: entry.weight, load_pct: entry.pct ?? null }, exercise.exercise_inventory?.lift, oneRms);
+}
+
 export function backdownWeight(exercise: any, oneRms: OneRms): number | null {
   return resolveLoad(
     { load_fixed: exercise.backdown_load_fixed, load_pct: exercise.backdown_load_pct },

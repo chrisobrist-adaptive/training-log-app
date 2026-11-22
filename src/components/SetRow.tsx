@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { Exercise, LoggedSet } from "../lib/types";
-import { prescribedWeight, backdownWeight, prescribedReps, backdownReps, type OneRms } from "../lib/exerciseDefaults";
+import type { AscendingSetEntry, Exercise, LoggedSet } from "../lib/types";
+import { ascendingWeight, prescribedWeight, backdownWeight, prescribedReps, backdownReps, type OneRms } from "../lib/exerciseDefaults";
 import { suggestFromChart, type RpeChartLog } from "../lib/rpeChart";
 
 // RECONSTRUCTED 2026-10-06 from the live production bundle (minified
@@ -31,7 +31,7 @@ interface SetRowProps {
   exercise: Exercise;
   oneRms: OneRms;
   isBackdown: boolean;
-  ascendingEntry: { weight: number | null; reps: number | null } | null;
+  ascendingEntry: AscendingSetEntry | null;
   existing: LoggedSet | null;
   onSave: (patch: Partial<LoggedSet>) => void;
   onSetCompleted?: (() => void) | null;
@@ -52,7 +52,7 @@ export default function SetRow({
   onSetCompleted,
   rpeChartLogs,
 }: SetRowProps) {
-  const defaultWeight = existing?.weight ?? (isBackdown ? backdownWeight(exercise, oneRms) : ascendingEntry ? ascendingEntry.weight : prescribedWeight(exercise, oneRms));
+  const defaultWeight = existing?.weight ?? (isBackdown ? backdownWeight(exercise, oneRms) : ascendingEntry ? ascendingWeight(exercise, ascendingEntry, oneRms) : prescribedWeight(exercise, oneRms));
   const defaultReps = existing?.reps ?? (isBackdown ? backdownReps(exercise) : ascendingEntry ? ascendingEntry.reps : prescribedReps(exercise));
 
   const [weight, setWeight] = useState<number | null>(defaultWeight);
@@ -64,13 +64,13 @@ export default function SetRow({
 
   const lift = exercise.exercise_inventory?.lift;
   const suggestion =
-    weight == null && !ascendingEntry
+    weight == null
       ? suggestFromChart(
           rpeChartLogs,
           lift,
           exercise.exercise_inventory?.rpe_chart_mode,
           reps,
-          isBackdown ? exercise.backdown_rpe : exercise.prescribed_rpe,
+          isBackdown ? exercise.backdown_rpe : (ascendingEntry?.rpe ?? exercise.prescribed_rpe),
           lift === "squat" ? oneRms?.squat_1rm : lift === "bench" ? oneRms?.bench_1rm : lift === "deadlift" ? oneRms?.deadlift_1rm : null,
         )
       : null;

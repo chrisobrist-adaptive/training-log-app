@@ -63,7 +63,7 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { fetchPlannedWeeklyMetrics, fetchRpeChartLogs, fetchWeekOneRms } from "../../lib/queries";
 import { suggestFromChart, type RpeChartLog } from "../../lib/rpeChart";
-import { prescribedWeight, backdownWeight, prescribedReps, backdownReps } from "../../lib/exerciseDefaults";
+import { ascendingWeight, prescribedWeight, backdownWeight, prescribedReps, backdownReps } from "../../lib/exerciseDefaults";
 import type {
   Block,
   Week,
@@ -633,12 +633,17 @@ export default function BlockBuilder() {
   const addAscendingSet = (ex: Exercise) => {
     const rows = ex.ascending_sets ?? [];
     const last = rows[rows.length - 1];
-    setAscending(ex, [...rows, { weight: null, reps: last?.reps ?? null }]);
+    setAscending(ex, [...rows, { weight: null, pct: null, reps: last?.reps ?? null, rpe: last?.rpe ?? null }]);
   };
   const startAscendingSets = (ex: Exercise) => {
     const reps = Number.parseInt(ex.prescribed_reps ?? "", 10);
-    const first: AscendingSetEntry = { weight: prescribedWeight(ex, activeWeekOneRm), reps: Number.isNaN(reps) ? null : reps };
-    setAscending(ex, [first, { weight: null, reps: first.reps }]);
+    const first: AscendingSetEntry = {
+      weight: ex.prescribed_load_fixed,
+      pct: ex.prescribed_load_fixed == null ? ex.prescribed_load_pct : null,
+      reps: Number.isNaN(reps) ? null : reps,
+      rpe: ex.prescribed_rpe,
+    };
+    setAscending(ex, [first, { weight: null, pct: null, reps: first.reps, rpe: first.rpe }]);
     setAscendingExerciseIds((prev) => new Set(prev).add(ex.id));
   };
   // Back to one regular row, using set 1's weight and reps.
@@ -650,6 +655,8 @@ export default function BlockBuilder() {
       prescribed_sets: rows.length || ex.prescribed_sets,
       ...(first?.reps != null ? { prescribed_reps: String(first.reps) } : {}),
       ...(first?.weight != null ? { prescribed_load_fixed: first.weight, prescribed_load_pct: null } : {}),
+      ...(first?.weight == null && first?.pct != null ? { prescribed_load_pct: first.pct, prescribed_load_fixed: null } : {}),
+      ...(first?.rpe != null ? { prescribed_rpe: first.rpe } : {}),
     });
     setAscendingExerciseIds((prev) => {
       const next = new Set(prev);
@@ -657,6 +664,33 @@ export default function BlockBuilder() {
       return next;
     });
   };
+  const num = (v: string) => (v === "" ? null : Number(v));
+  // Reps, % 1RM and fixed load for one ascending set (the builder's Reps,
+  // Load % and Load (fixed) columns). A % shows the kg it comes out to.
+  const ascendingSetInputs = (ex: Exercise, idx: number) => {
+    const set = ex.ascending_sets![idx];
+    const fromPct = set.weight == null && set.pct != null ? ascendingWeight(ex, set, activeWeekOneRm) : null;
+    return (
+      <>
+        <input type="number" placeholder="Reps" value={set.reps ?? ""} onChange={(e) => updateAscendingSet(ex, idx, { reps: num(e.target.value) })} />
+        <input type="number" placeholder="%" value={set.pct ?? ""} onChange={(e) => updateAscendingSet(ex, idx, { pct: num(e.target.value) })} />
+        <input
+          type="number"
+          placeholder={fromPct != null ? `= ${fromPct}` : "kg"}
+          value={set.weight ?? ""}
+          onChange={(e) => updateAscendingSet(ex, idx, { weight: num(e.target.value) })}
+        />
+      </>
+    );
+  };
+  const ascendingRpeInput = (ex: Exercise, idx: number) => (
+    <input
+      type="number"
+      placeholder={ex.prescribed_rpe != null ? String(ex.prescribed_rpe) : "RPE"}
+      value={ex.ascending_sets![idx].rpe ?? ""}
+      onChange={(e) => updateAscendingSet(ex, idx, { rpe: num(e.target.value) })}
+    />
+  );
   const removeAscendingSet = (ex: Exercise, idx: number) => {
     const rows = (ex.ascending_sets ?? []).filter((_r, i) => i !== idx);
     if (rows.length <= 1) endAscendingSets({ ...ex, ascending_sets: rows });
@@ -977,19 +1011,7 @@ export default function BlockBuilder() {
                           // Ascending sets: this row is set 1, sets 2+ sit underneath.
                           <>
                             <span className="ascending-set-label">Set 1</span>
-                            <input
-                              type="number"
-                              placeholder="Reps"
-                              value={ex.ascending_sets![0].reps ?? ""}
-                              onChange={(e) => updateAscendingSet(ex, 0, { reps: e.target.value === "" ? null : Number(e.target.value) })}
-                            />
-                            <span />
-                            <input
-                              type="number"
-                              placeholder="kg"
-                              value={ex.ascending_sets![0].weight ?? ""}
-                              onChange={(e) => updateAscendingSet(ex, 0, { weight: e.target.value === "" ? null : Number(e.target.value) })}
-                            />
+                            {ascendingSetInputs(ex, 0)}
                           </>
                         ) : (
                           <>
@@ -1015,11 +1037,15 @@ export default function BlockBuilder() {
                             />
                           </>
                         )}
-                        <input
-                          type="number"
-                          value={ex.prescribed_rpe ?? ""}
-                          onChange={(e) => updateExerciseField(ex.id, { prescribed_rpe: e.target.value === "" ? null : Number(e.target.value) })}
-                        />
+                        {ascendingExerciseIds.has(ex.id) && (ex.ascending_sets?.length ?? 0) > 0 ? (
+                          ascendingRpeInput(ex, 0)
+                        ) : (
+                          <input
+                            type="number"
+                            value={ex.prescribed_rpe ?? ""}
+                            onChange={(e) => updateExerciseField(ex.id, { prescribed_rpe: e.target.value === "" ? null : Number(e.target.value) })}
+                          />
+                        )}
                         <input
                           type="number"
                           value={ex.prescribed_rir ?? ""}
@@ -1065,26 +1091,14 @@ export default function BlockBuilder() {
 
                       {ascendingExerciseIds.has(ex.id) && (ex.ascending_sets?.length ?? 0) > 0 ? (
                         <>
-                          {(ex.ascending_sets ?? []).slice(1).map((set: AscendingSetEntry, k: number) => {
+                          {(ex.ascending_sets ?? []).slice(1).map((_set: AscendingSetEntry, k: number) => {
                             const setIdx = k + 1;
                             return (
                               <div key={setIdx} className="exercise-row">
                                 <span />
                                 <span className="ascending-set-label">Set {setIdx + 1}</span>
-                                <input
-                                  type="number"
-                                  placeholder="Reps"
-                                  value={set.reps ?? ""}
-                                  onChange={(e) => updateAscendingSet(ex, setIdx, { reps: e.target.value === "" ? null : Number(e.target.value) })}
-                                />
-                                <span />
-                                <input
-                                  type="number"
-                                  placeholder="kg"
-                                  value={set.weight ?? ""}
-                                  onChange={(e) => updateAscendingSet(ex, setIdx, { weight: e.target.value === "" ? null : Number(e.target.value) })}
-                                />
-                                <span />
+                                {ascendingSetInputs(ex, setIdx)}
+                                {ascendingRpeInput(ex, setIdx)}
                                 <span />
                                 <button
                                   type="button"

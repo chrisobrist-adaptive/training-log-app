@@ -43,9 +43,10 @@ export type WeekEffective1Rm = Views["week_effective_1rm"]["Row"];
 // own weight/reps, overriding the normal sets x reps x %1RM scheme) —
 // stored as jsonb on the exercise row. Shape confirmed against every real
 // usage (BlockBuilder.tsx's ascending-sets editor, SessionPlayer.tsx,
-// sessionPlayerHelpers.ts): always { weight, reps }, both nullable while
-// a row is still being filled in.
-export type AscendingSetEntry = { weight: number | null; reps: number | null };
+// sessionPlayerHelpers.ts): { weight, reps } plus optional pct (% of the
+// training max, used when weight is empty) and rpe (that set's target),
+// all nullable while a row is still being filled in.
+export type AscendingSetEntry = { weight: number | null; reps: number | null; pct?: number | null; rpe?: number | null };
 
 export type Exercise = Omit<Tables["exercises"]["Row"], "ascending_sets"> & {
   exercise_inventory: ExerciseInventory | null;
