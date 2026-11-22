@@ -624,6 +624,45 @@ export default function BlockBuilder() {
   // local state immediately; `exercise_inventory` is stripped from the
   // patch before persisting since it's a joined/computed field, not a
   // real column on `exercises` — see file header, point 1.
+  // Ascending sets: the regular row becomes set 1 and each extra set gets its
+  // own weight × reps. prescribed_sets is kept equal to the number of sets.
+  const setAscending = (ex: Exercise, rows: AscendingSetEntry[]) =>
+    updateExerciseField(ex.id, { ascending_sets: rows, prescribed_sets: rows.length });
+  const updateAscendingSet = (ex: Exercise, idx: number, patch: Partial<AscendingSetEntry>) =>
+    setAscending(ex, (ex.ascending_sets ?? []).map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  const addAscendingSet = (ex: Exercise) => {
+    const rows = ex.ascending_sets ?? [];
+    const last = rows[rows.length - 1];
+    setAscending(ex, [...rows, { weight: null, reps: last?.reps ?? null }]);
+  };
+  const startAscendingSets = (ex: Exercise) => {
+    const reps = Number.parseInt(ex.prescribed_reps ?? "", 10);
+    const first: AscendingSetEntry = { weight: prescribedWeight(ex, activeWeekOneRm), reps: Number.isNaN(reps) ? null : reps };
+    setAscending(ex, [first, { weight: null, reps: first.reps }]);
+    setAscendingExerciseIds((prev) => new Set(prev).add(ex.id));
+  };
+  // Back to one regular row, using set 1's weight and reps.
+  const endAscendingSets = (ex: Exercise) => {
+    const rows = ex.ascending_sets ?? [];
+    const first = rows[0];
+    updateExerciseField(ex.id, {
+      ascending_sets: null,
+      prescribed_sets: rows.length || ex.prescribed_sets,
+      ...(first?.reps != null ? { prescribed_reps: String(first.reps) } : {}),
+      ...(first?.weight != null ? { prescribed_load_fixed: first.weight, prescribed_load_pct: null } : {}),
+    });
+    setAscendingExerciseIds((prev) => {
+      const next = new Set(prev);
+      next.delete(ex.id);
+      return next;
+    });
+  };
+  const removeAscendingSet = (ex: Exercise, idx: number) => {
+    const rows = (ex.ascending_sets ?? []).filter((_r, i) => i !== idx);
+    if (rows.length <= 1) endAscendingSets({ ...ex, ascending_sets: rows });
+    else setAscending(ex, rows);
+  };
+
   const updateExerciseField = (exerciseId: string, patch: Partial<Exercise>) => {
     setExercises((prev) => prev.map((ex) => (ex.id === exerciseId ? { ...ex, ...patch } : ex)));
     const { exercise_inventory, ...columnPatch } = patch;
@@ -934,34 +973,48 @@ export default function BlockBuilder() {
                           }}
                           autoOpen={ex.id === autoOpenExerciseId}
                         />
-                        <input
-                          type="number"
-                          value={ex.prescribed_sets ?? ""}
-                          disabled={ascendingExerciseIds.has(ex.id)}
-                          title={ascendingExerciseIds.has(ex.id) ? "Superseded by the ascending sets below" : undefined}
-                          onChange={(e) => updateExerciseField(ex.id, { prescribed_sets: e.target.value === "" ? null : Number(e.target.value) })}
-                        />
-                        <input
-                          value={ex.prescribed_reps ?? ""}
-                          placeholder="e.g. 5, 8-10, AMRAP"
-                          disabled={ascendingExerciseIds.has(ex.id)}
-                          title={ascendingExerciseIds.has(ex.id) ? "Superseded by the ascending sets below" : undefined}
-                          onChange={(e) => updateExerciseField(ex.id, { prescribed_reps: e.target.value })}
-                        />
-                        <input
-                          type="number"
-                          value={ex.prescribed_load_pct ?? ""}
-                          disabled={ascendingExerciseIds.has(ex.id)}
-                          title={ascendingExerciseIds.has(ex.id) ? "Superseded by the ascending sets below" : undefined}
-                          onChange={(e) => updateExerciseField(ex.id, { prescribed_load_pct: e.target.value === "" ? null : Number(e.target.value) })}
-                        />
-                        <input
-                          type="number"
-                          value={ex.prescribed_load_fixed ?? ""}
-                          disabled={ascendingExerciseIds.has(ex.id)}
-                          title={ascendingExerciseIds.has(ex.id) ? "Superseded by the ascending sets below" : undefined}
-                          onChange={(e) => updateExerciseField(ex.id, { prescribed_load_fixed: e.target.value === "" ? null : Number(e.target.value) })}
-                        />
+                        {ascendingExerciseIds.has(ex.id) && (ex.ascending_sets?.length ?? 0) > 0 ? (
+                          // Ascending sets: this row is set 1, sets 2+ sit underneath.
+                          <>
+                            <span className="ascending-set-label">Set 1</span>
+                            <input
+                              type="number"
+                              placeholder="Reps"
+                              value={ex.ascending_sets![0].reps ?? ""}
+                              onChange={(e) => updateAscendingSet(ex, 0, { reps: e.target.value === "" ? null : Number(e.target.value) })}
+                            />
+                            <span />
+                            <input
+                              type="number"
+                              placeholder="kg"
+                              value={ex.ascending_sets![0].weight ?? ""}
+                              onChange={(e) => updateAscendingSet(ex, 0, { weight: e.target.value === "" ? null : Number(e.target.value) })}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <input
+                              type="number"
+                              value={ex.prescribed_sets ?? ""}
+                              onChange={(e) => updateExerciseField(ex.id, { prescribed_sets: e.target.value === "" ? null : Number(e.target.value) })}
+                            />
+                            <input
+                              value={ex.prescribed_reps ?? ""}
+                              placeholder="e.g. 5, 8-10, AMRAP"
+                              onChange={(e) => updateExerciseField(ex.id, { prescribed_reps: e.target.value })}
+                            />
+                            <input
+                              type="number"
+                              value={ex.prescribed_load_pct ?? ""}
+                              onChange={(e) => updateExerciseField(ex.id, { prescribed_load_pct: e.target.value === "" ? null : Number(e.target.value) })}
+                            />
+                            <input
+                              type="number"
+                              value={ex.prescribed_load_fixed ?? ""}
+                              onChange={(e) => updateExerciseField(ex.id, { prescribed_load_fixed: e.target.value === "" ? null : Number(e.target.value) })}
+                            />
+                          </>
+                        )}
                         <input
                           type="number"
                           value={ex.prescribed_rpe ?? ""}
@@ -1010,93 +1063,56 @@ export default function BlockBuilder() {
                         </div>
                       </div>
 
-                      {ascendingExerciseIds.has(ex.id) ? (
-                        <div style={{ margin: "0 0 0.6rem", padding: "0.5rem 0.6rem", background: "var(--surface-alt, rgba(255,255,255,0.03))", borderRadius: 6 }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
-                            <span className="muted" style={{ fontSize: "0.8rem" }}>
-                              ↳ Ascending sets — exact weight &amp; reps per set
-                            </span>
-                            <button
-                              type="button"
-                              className="link-button"
-                              onClick={() => {
-                                updateExerciseField(ex.id, { ascending_sets: null });
-                                setAscendingExerciseIds((prev) => {
-                                  const next = new Set(prev);
-                                  next.delete(ex.id);
-                                  return next;
-                                });
-                              }}
-                            >
-                              Remove ascending sets
+                      {ascendingExerciseIds.has(ex.id) && (ex.ascending_sets?.length ?? 0) > 0 ? (
+                        <>
+                          {(ex.ascending_sets ?? []).slice(1).map((set: AscendingSetEntry, k: number) => {
+                            const setIdx = k + 1;
+                            return (
+                              <div key={setIdx} className="exercise-row">
+                                <span />
+                                <span className="ascending-set-label">Set {setIdx + 1}</span>
+                                <input
+                                  type="number"
+                                  placeholder="Reps"
+                                  value={set.reps ?? ""}
+                                  onChange={(e) => updateAscendingSet(ex, setIdx, { reps: e.target.value === "" ? null : Number(e.target.value) })}
+                                />
+                                <span />
+                                <input
+                                  type="number"
+                                  placeholder="kg"
+                                  value={set.weight ?? ""}
+                                  onChange={(e) => updateAscendingSet(ex, setIdx, { weight: e.target.value === "" ? null : Number(e.target.value) })}
+                                />
+                                <span />
+                                <span />
+                                <button
+                                  type="button"
+                                  className="danger-button"
+                                  title="Remove this set"
+                                  style={{ justifySelf: "start" }}
+                                  onClick={() => removeAscendingSet(ex, setIdx)}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            );
+                          })}
+                          <div className="toolbar" style={{ gap: "0.75rem", margin: "0 0 0.4rem" }}>
+                            <button type="button" className="link-button" style={{ fontSize: "0.8rem" }} onClick={() => addAscendingSet(ex)}>
+                              + Add set
+                            </button>
+                            <button type="button" className="link-button" style={{ fontSize: "0.8rem" }} onClick={() => endAscendingSets(ex)}>
+                              Back to regular sets
                             </button>
                           </div>
-                          {(ex.ascending_sets ?? []).map((set: AscendingSetEntry, setIdx: number) => (
-                            <div key={setIdx} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem" }}>
-                              <span className="muted" style={{ fontSize: "0.8rem", width: "3.2rem" }}>
-                                Set {setIdx + 1}
-                              </span>
-                              <input
-                                type="number"
-                                placeholder="Weight"
-                                style={{ width: "6rem" }}
-                                value={set.weight ?? ""}
-                                onChange={(e) => {
-                                  const rows = ex.ascending_sets ?? [];
-                                  const v = e.target.value === "" ? null : Number(e.target.value);
-                                  updateExerciseField(ex.id, { ascending_sets: rows.map((r, i) => (i === setIdx ? { ...r, weight: v } : r)) });
-                                }}
-                              />
-                              <input
-                                type="number"
-                                placeholder="Reps"
-                                style={{ width: "5rem" }}
-                                value={set.reps ?? ""}
-                                onChange={(e) => {
-                                  const rows = ex.ascending_sets ?? [];
-                                  const v = e.target.value === "" ? null : Number(e.target.value);
-                                  updateExerciseField(ex.id, { ascending_sets: rows.map((r, i) => (i === setIdx ? { ...r, reps: v } : r)) });
-                                }}
-                              />
-                              <button
-                                type="button"
-                                className="danger-button"
-                                title="Remove this set"
-                                onClick={() => {
-                                  const rows = ex.ascending_sets ?? [];
-                                  if (rows.length <= 1) {
-                                    updateExerciseField(ex.id, { ascending_sets: null });
-                                    setAscendingExerciseIds((prev) => {
-                                      const next = new Set(prev);
-                                      next.delete(ex.id);
-                                      return next;
-                                    });
-                                    return;
-                                  }
-                                  updateExerciseField(ex.id, { ascending_sets: rows.filter((_r, i) => i !== setIdx) });
-                                }}
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            onClick={() => updateExerciseField(ex.id, { ascending_sets: [...(ex.ascending_sets ?? []), { weight: null, reps: null }] })}
-                          >
-                            + Add set
-                          </button>
-                        </div>
+                        </>
                       ) : (
                         <button
                           type="button"
                           className="link-button"
-                          style={{ fontSize: "0.8rem", margin: "0 0 0.4rem" }}
-                          onClick={() => {
-                            updateExerciseField(ex.id, { ascending_sets: [{ weight: null, reps: null }] });
-                            setAscendingExerciseIds((prev) => new Set(prev).add(ex.id));
-                          }}
+                          style={{ fontSize: "0.8rem", margin: "0 1rem 0.4rem 0" }}
+                          onClick={() => startAscendingSets(ex)}
                         >
                           + Add ascending sets
                         </button>
