@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AscendingSetEntry, Exercise, LoggedSet } from "../lib/types";
 import { ascendingWeight, prescribedWeight, backdownWeight, prescribedReps, backdownReps, type OneRms } from "../lib/exerciseDefaults";
 import { suggestFromChart, type RpeChartLog } from "../lib/rpeChart";
@@ -59,6 +59,17 @@ export default function SetRow({
   const [reps, setReps] = useState<number | null>(defaultReps);
   const [rpe, setRpe] = useState<number | null>(existing?.rpe ?? null);
   const [status, setStatus] = useState<SetStatus>((existing?.status as SetStatus) ?? null);
+
+  // The week's training maxes can load after this row first renders (e.g.
+  // the app reopens straight into a session). Fill a still-empty box once
+  // the prescribed weight/reps can be worked out.
+  const logged = existing != null;
+  useEffect(() => {
+    if (!logged && defaultWeight != null) setWeight((w) => w ?? defaultWeight);
+  }, [logged, defaultWeight]);
+  useEffect(() => {
+    if (!logged && defaultReps != null) setReps((r) => r ?? defaultReps);
+  }, [logged, defaultReps]);
 
   const display = statusDisplay(status, rpe);
 
