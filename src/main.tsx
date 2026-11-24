@@ -77,6 +77,16 @@ function registerServiceWorker() {
     navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
       .then((reg) => {
+        // A version that downloaded under an older service worker can be
+        // sitting in "waiting" — tell it to take over now.
+        const activateWaiting = () => reg.waiting?.postMessage({ type: "SKIP_WAITING" });
+        activateWaiting();
+        reg.addEventListener("updatefound", () => {
+          const sw = reg.installing;
+          sw?.addEventListener("statechange", () => {
+            if (sw.state === "installed") activateWaiting();
+          });
+        });
         reg.update().catch(() => {});
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "visible") reg.update().catch(() => {});

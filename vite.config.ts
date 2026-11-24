@@ -25,6 +25,11 @@ export default defineConfig({
       // deploy until it had been force-quit twice.
       injectRegister: false,
       workbox: {
+        // Take over as soon as a new deploy installs (main.tsx then reloads
+        // onto it) instead of waiting for every open copy of the app to close,
+        // which an iPhone home-screen app may never do.
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
         // iOS launch images are fetched by iOS itself (one per device), not
         // by the page — no reason for every device to precache all of them.
