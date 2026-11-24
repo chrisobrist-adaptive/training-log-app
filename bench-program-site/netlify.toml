@@ -1,5 +1,0 @@
-# Separate Netlify site: set Base directory to "bench-program-site".
-# Plain static files, no build step.
-[build]
-  publish = "."
-  command = ""
