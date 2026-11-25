@@ -76,6 +76,7 @@ import type {
 } from "../../lib/types";
 import ExerciseInventoryPicker from "../../components/ExerciseInventoryPicker";
 import PlannedMetricsTable from "../../components/PlannedMetricsTable";
+import { blockStartMonday } from "../../lib/blockCalendar";
 
 // The three lifts that carry a per-week training max (override on
 // `weeks.{lift}_1rm`, inherited/effective value from the
@@ -190,6 +191,20 @@ function autoGrow(el: HTMLTextAreaElement | null) {
   if (!el) return;
   el.style.height = "auto";
   el.style.height = `${el.scrollHeight + 2}px`;
+}
+
+// Mondays a deployed block can be moved to: from 4 weeks before this week
+// (or its current start, if earlier) to 8 weeks after its current start.
+function startWeekOptions(deployedAt: string): Date[] {
+  const current = blockStartMonday(deployedAt);
+  const thisWeek = blockStartMonday(new Date(Date.now() - 6 * 86400000).toISOString());
+  const first = new Date(Math.min(current.getTime(), thisWeek.getTime()));
+  first.setDate(first.getDate() - 28);
+  const last = new Date(current);
+  last.setDate(last.getDate() + 56);
+  const out: Date[] = [];
+  for (const d = new Date(first); d <= last; d.setDate(d.getDate() + 7)) out.push(new Date(d));
+  return out;
 }
 
 export default function BlockBuilder() {
@@ -771,6 +786,25 @@ export default function BlockBuilder() {
             }}
           />
           <span className={`badge badge-${block.status}`}>{block.status}</span>
+          {block.status === "deployed" && block.deployed_at && (
+            <label className="block-start-picker">
+              Starts
+              <select
+                value={blockStartMonday(block.deployed_at).toISOString()}
+                onChange={async (e) => {
+                  const deployed_at = e.target.value;
+                  setBlock({ ...block, deployed_at });
+                  await supabase.from("blocks").update({ deployed_at }).eq("id", block.id);
+                }}
+              >
+                {startWeekOptions(block.deployed_at).map((d) => (
+                  <option key={d.toISOString()} value={d.toISOString()}>
+                    {d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
         <div className="toolbar">
           <Link to={`/athletes/${athleteId}`} className="secondary-button">
