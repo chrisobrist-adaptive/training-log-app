@@ -226,6 +226,15 @@ export default function BlockBuilder() {
   const [savingTmWeekId, setSavingTmWeekId] = useState<string | null>(null);
   const [activeWeekId, setActiveWeekId] = useState<string | null>(null);
   const [deploying, setDeploying] = useState(false);
+  const [setMenuExerciseId, setSetMenuExerciseId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!setMenuExerciseId) return;
+    const close = (e: MouseEvent) => {
+      if (!(e.target as Element).closest?.(".set-type-menu")) setSetMenuExerciseId(null);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [setMenuExerciseId]);
   const [deletingBlock, setDeletingBlock] = useState(false);
   const [weekActionBusy, setWeekActionBusy] = useState(false);
   const [autoOpenExerciseId, setAutoOpenExerciseId] = useState<string | null>(null);
@@ -691,7 +700,8 @@ export default function BlockBuilder() {
         <input type="number" placeholder="%" value={set.pct ?? ""} onChange={(e) => updateAscendingSet(ex, idx, { pct: num(e.target.value) })} />
         <input
           type="number"
-          placeholder={fromPct != null ? `= ${fromPct}` : "kg"}
+          className="load-from-pct"
+          placeholder={fromPct != null ? String(fromPct) : "kg"}
           value={set.weight ?? ""}
           onChange={(e) => updateAscendingSet(ex, idx, { weight: num(e.target.value) })}
         />
@@ -1014,11 +1024,8 @@ export default function BlockBuilder() {
                   const isWarning = preview?.startsWith("No training max") ?? false;
                   return (
                     <div key={ex.id}>
-                      {preview && (
-                        <div style={{ fontSize: "0.8rem", color: isWarning ? "var(--warn)" : "var(--good)", padding: "0 0.1rem", margin: "0 0 0.3rem" }}>
-                          {!isWarning && <span style={{ color: "var(--muted)" }}>COMES OUT TO: </span>}
-                          {preview}
-                        </div>
+                      {isWarning && (
+                        <div style={{ fontSize: "0.8rem", color: "var(--warn)", padding: "0 0.1rem", margin: "0 0 0.3rem" }}>{preview}</div>
                       )}
                       {chartSuggestionLine(ex, "main")}
                       <div className="exercise-row">
@@ -1066,6 +1073,8 @@ export default function BlockBuilder() {
                             />
                             <input
                               type="number"
+                              className="load-from-pct"
+                              placeholder={ex.prescribed_load_pct != null ? String(prescribedWeight(ex, activeWeekOneRm) ?? "") : undefined}
                               value={ex.prescribed_load_fixed ?? ""}
                               onChange={(e) => updateExerciseField(ex.id, { prescribed_load_fixed: e.target.value === "" ? null : Number(e.target.value) })}
                             />
@@ -1098,6 +1107,44 @@ export default function BlockBuilder() {
                           >
                             ↓
                           </button>
+                          <div className="set-type-menu">
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              title="Ascending or backdown sets"
+                              aria-label="Ascending or backdown sets"
+                              aria-expanded={setMenuExerciseId === ex.id}
+                              onClick={() => setSetMenuExerciseId((cur) => (cur === ex.id ? null : ex.id))}
+                            >
+                              +
+                            </button>
+                            {setMenuExerciseId === ex.id && (
+                              <div className="set-type-menu-list" role="menu">
+                                {ascendingExerciseIds.has(ex.id) && (ex.ascending_sets?.length ?? 0) > 0 ? (
+                                  <button type="button" role="menuitem" onClick={() => { endAscendingSets(ex); setSetMenuExerciseId(null); }}>
+                                    Remove ascending sets
+                                  </button>
+                                ) : (
+                                  <button type="button" role="menuitem" onClick={() => { startAscendingSets(ex); setSetMenuExerciseId(null); }}>
+                                    Ascending sets
+                                  </button>
+                                )}
+                                {!backdownExerciseIds.has(ex.id) && (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      updateExerciseField(ex.id, { backdown_sets: 1 });
+                                      setBackdownExerciseIds((prev) => new Set(prev).add(ex.id));
+                                      setSetMenuExerciseId(null);
+                                    }}
+                                  >
+                                    Backdown sets
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                           <button
                             type="button"
                             className={`secondary-button cue-toggle-btn${ex.coach_cue ? " has-cue" : ""}`}
@@ -1150,21 +1197,9 @@ export default function BlockBuilder() {
                             <button type="button" className="link-button" style={{ fontSize: "0.8rem" }} onClick={() => addAscendingSet(ex)}>
                               + Add set
                             </button>
-                            <button type="button" className="link-button" style={{ fontSize: "0.8rem" }} onClick={() => endAscendingSets(ex)}>
-                              Back to regular sets
-                            </button>
                           </div>
                         </>
-                      ) : (
-                        <button
-                          type="button"
-                          className="link-button"
-                          style={{ fontSize: "0.8rem", margin: "0 1rem 0.4rem 0" }}
-                          onClick={() => startAscendingSets(ex)}
-                        >
-                          + Add ascending sets
-                        </button>
-                      )}
+                      ) : null}
 
                       {backdownExerciseIds.has(ex.id) ? (
                         <>
@@ -1172,12 +1207,9 @@ export default function BlockBuilder() {
                           {(() => {
                             const preview2 = backdownSetPreview(ex, activeWeekOneRm);
                             if (!preview2) return null;
-                            const isWarning2 = preview2.startsWith("No training max");
+                            if (!preview2.startsWith("No training max")) return null;
                             return (
-                              <div style={{ fontSize: "0.8rem", color: isWarning2 ? "var(--warn)" : "var(--good)", padding: "0 0.1rem", margin: "0 0 0.3rem" }}>
-                                {!isWarning2 && <span style={{ color: "var(--muted)" }}>COMES OUT TO: </span>}
-                                {preview2}
-                              </div>
+                              <div style={{ fontSize: "0.8rem", color: "var(--warn)", padding: "0 0.1rem", margin: "0 0 0.3rem" }}>{preview2}</div>
                             );
                           })()}
                           <div className="exercise-row">
@@ -1201,6 +1233,8 @@ export default function BlockBuilder() {
                             />
                             <input
                               type="number"
+                              className="load-from-pct"
+                              placeholder={ex.backdown_load_pct != null ? String(backdownWeight(ex, activeWeekOneRm) ?? "") : undefined}
                               value={ex.backdown_load_fixed ?? ""}
                               onChange={(e) => updateExerciseField(ex.id, { backdown_load_fixed: e.target.value === "" ? null : Number(e.target.value) })}
                             />
@@ -1238,19 +1272,7 @@ export default function BlockBuilder() {
                             </button>
                           </div>
                         </>
-                      ) : (
-                        <button
-                          type="button"
-                          className="link-button"
-                          style={{ fontSize: "0.8rem", margin: "0 0 0.4rem" }}
-                          onClick={() => {
-                            updateExerciseField(ex.id, { backdown_sets: 1 });
-                            setBackdownExerciseIds((prev) => new Set(prev).add(ex.id));
-                          }}
-                        >
-                          + Add backdown sets
-                        </button>
-                      )}
+                      ) : null}
                       {/* Shown to the athlete in a "Cues" card above this exercise in their log. */}
                       {cueOpenExerciseIds.has(ex.id) && (
                         <textarea
