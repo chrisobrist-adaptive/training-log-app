@@ -1015,7 +1015,6 @@ export default function BlockBuilder() {
                   <span>Load % 1RM</span>
                   <span>Load (fixed)</span>
                   <span>RPE</span>
-                  <span>RIR</span>
                   <span></span>
                 </div>
 
@@ -1089,11 +1088,6 @@ export default function BlockBuilder() {
                             onChange={(e) => updateExerciseField(ex.id, { prescribed_rpe: e.target.value === "" ? null : Number(e.target.value) })}
                           />
                         )}
-                        <input
-                          type="number"
-                          value={ex.prescribed_rir ?? ""}
-                          onChange={(e) => updateExerciseField(ex.id, { prescribed_rir: e.target.value === "" ? null : Number(e.target.value) })}
-                        />
                         <div className="toolbar" style={{ flexWrap: "nowrap", gap: "0.25rem" }}>
                           <button type="button" className="secondary-button" title="Move up" onClick={() => reorderExercise(day.id, ex.id, "up")} disabled={idx === 0}>
                             ↑
@@ -1180,7 +1174,6 @@ export default function BlockBuilder() {
                                 <span className="ascending-set-label">Set {setIdx + 1}</span>
                                 {ascendingSetInputs(ex, setIdx)}
                                 {ascendingRpeInput(ex, setIdx)}
-                                <span />
                                 <button
                                   type="button"
                                   className="danger-button"
@@ -1242,11 +1235,6 @@ export default function BlockBuilder() {
                               type="number"
                               value={ex.backdown_rpe ?? ""}
                               onChange={(e) => updateExerciseField(ex.id, { backdown_rpe: e.target.value === "" ? null : Number(e.target.value) })}
-                            />
-                            <input
-                              type="number"
-                              value={ex.backdown_rir ?? ""}
-                              onChange={(e) => updateExerciseField(ex.id, { backdown_rir: e.target.value === "" ? null : Number(e.target.value) })}
                             />
                             <button
                               className="danger-button"
